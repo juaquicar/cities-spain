@@ -74,7 +74,9 @@ controls.minDistance = 60;
 controls.maxDistance = 60000;
 
 function view(x, z, span, azimuth = 200, elevation = 40) {
-  const az = THREE.MathUtils.degToRad(azimuth), el = THREE.MathUtils.degToRad(elevation), d = span * 0.9;
+  // a portrait screen sees less width at the same distance: step back so the area still fits
+  const fit = Math.sqrt(Math.max(1, 1.3 * innerHeight / innerWidth));
+  const az = THREE.MathUtils.degToRad(azimuth), el = THREE.MathUtils.degToRad(elevation), d = span * 0.9 * fit;
   const y = groundAt(x, z);
   return { target: new THREE.Vector3(x, y, z),
     position: new THREE.Vector3(x + d * Math.cos(el) * Math.sin(az), y + d * Math.sin(el), z + d * Math.cos(el) * Math.cos(az)) };
@@ -395,7 +397,16 @@ function counts() {
 }
 
 // ---------- Panel ----------
-const panel = document.getElementById('panel');
+const panel = document.getElementById('panel-body');
+// On a phone the legend is a sheet folded to its title; a tap opens it.
+const panelBox = document.getElementById('panel'), panelToggle = panelBox.querySelector('.panel-toggle');
+const narrow = matchMedia('(max-width: 760px)');
+function foldPanel(open) {
+  panelBox.classList.toggle('open', open);
+  panelToggle.setAttribute('aria-expanded', String(open));
+}
+panelToggle.onclick = () => foldPanel(!panelBox.classList.contains('open'));
+foldPanel(!narrow.matches);
 function renderPanel(c) {
   if (state.mode === MODE.period || state.mode === MODE.heritage) {
     const herit = state.mode === MODE.heritage, n = herit ? c.monByPeriod : c.byPeriod;
@@ -457,8 +468,8 @@ function drawHist(c) {
   }
   hctx.fillStyle = '#5f5c55'; hctx.font = '11px "Schibsted Grotesk", sans-serif';
   hctx.textAlign = 'center';
-  const ticks = [1900, 1929, 1950, 1975, 1992, 2008, 2026];
-  if (OLD_W) ticks.unshift(OLD);
+  const ticks = W < 560 ? [1900, 1950, 1992, 2026] : [1900, 1929, 1950, 1975, 1992, 2008, 2026];
+  if (OLD_W && W >= 560) ticks.unshift(OLD);
   for (const y of ticks) if (y >= yMin && y <= yMax) hctx.fillText(y, Math.min(W - 14, Math.max(14, xOf(y) * W)), H - 2);
   if (OLD_W) { hctx.textAlign = 'left'; hctx.fillText('antes', 0, H - 2); }
   const xs = xOf(state.year + 1) * W;
@@ -612,6 +623,7 @@ function pinCard(i, x, y) {
   uniforms.uSelected.value = i;
   if (i < 0) { card.hidden = true; return; }
   card.className = 'card pinned';
+  if (narrow.matches) foldPanel(false);
   card.innerHTML = cardHtml(i, true);
   card.hidden = false;
   placeCard(x, y);
@@ -619,7 +631,7 @@ function pinCard(i, x, y) {
 }
 
 let pointer = null, downAt = null;
-canvas.addEventListener('pointermove', e => { pointer = [e.clientX, e.clientY]; });
+canvas.addEventListener('pointermove', e => { pointer = e.pointerType === 'touch' ? null : [e.clientX, e.clientY]; });
 canvas.addEventListener('pointerleave', () => { pointer = null; uniforms.uHover.value = -1; showCard(-1); });
 canvas.addEventListener('pointerdown', e => { downAt = [e.clientX, e.clientY]; });
 canvas.addEventListener('pointerup', e => {
