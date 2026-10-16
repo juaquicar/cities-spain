@@ -1,0 +1,116 @@
+"""Terrain: the IGN's 5 m digital terrain model (MDT05, WCS, CC BY 4.0 scne.es) under every building and as a ground mesh.
+
+The Aljarafe stands on a plateau 100–150 m above the Guadalquivir plain, so a flat model misplaces it badly.
+
+  data/base.parquet      ref → ground level of each building (lowest terrain under its outline, metres)
+  web/data/terrain.bin   heightfield for the viewer, little-endian:
+                         f32 x0, z0 (local frame, north-west corner), f32 step; u32 nx, nz;
+                         i16 h[nz*nx] (decimetres); u8 muni[nz*nx] (municipality id, 255 outside)
+"""
+import json
+import os
+import math
+import struct
+from pathlib import Path
+
+import geopandas as gpd
+import numpy as np
+import rasterio
+import requests
+import shapely
+from rasterio.features import rasterize
+from rasterio.merge import merge
+from rasterio.transform import from_origin
+from rasterio.warp import Resampling, reproject
+
+from .municipios import ORDER
+from .s00_fetch_catastro import chosen
+from .s03_tiles import GIRALDA, OUT
+
+WCS = ("https://servicios.idee.es/wcs-inspire/mdt?service=WCS&version=2.0.1&request=GetCoverage"
+       "&CoverageId=Elevacion25830_5&format=image/tiff&subset=x({x0},{x1})&subset=y({y0},{y1})")
+CACHE = Path("data/raw/mdt")
+CHUNK = 8000          # metres per WCS request
+PAD = 2500            # metres of terrain around the municipalities
+MAX_VERTS = 450_000   # ground mesh budget
+BASE = OUT.parent / "base.parquet" if os.environ.get("SITE_OUT") else Path("data/base.parquet")
+
+
+def fetch(x0, y0):
+    f = CACHE / f"{x0}_{y0}.tif"
+    if not f.exists():
+        url = WCS.format(x0=x0, x1=x0 + CHUNK, y0=y0, y1=y0 + CHUNK)
+        for attempt in range(5):
+            try:
+                r = requests.get(url, timeout=300)
+                r.raise_for_status()
+                if not r.headers.get("content-type", "").startswith("image/tiff"):
+                    raise requests.RequestException(r.text[:200])
+                f.write_bytes(r.content)
+                break
+            except requests.RequestException as e:
+                print(f"  MDT {x0},{y0}: {e}; reintento", flush=True)
+        else:
+            raise SystemExit("El WCS del IGN no responde")
+    return f
+
+
+def main():
+    CACHE.mkdir(parents=True, exist_ok=True)
+    b = gpd.read_parquet("data/buildings.parquet")
+    b = b[b.muni.isin([ORDER.index(c) for c in chosen()])][["ref", "geometry"]]
+    ground = json.loads((OUT / "ground.json").read_text())
+    minx, miny, maxx, maxy = b.total_bounds
+    for m in ground["munis"]:  # municipal boundaries are in the local frame
+        for rings in m["rings"]:
+            xs, zs = np.array(rings[0][0::2]), np.array(rings[0][1::2])
+            minx, maxx = min(minx, xs.min() + GIRALDA[0]), max(maxx, xs.max() + GIRALDA[0])
+            miny, maxy = min(miny, GIRALDA[1] - zs.max()), max(maxy, GIRALDA[1] - zs.min())
+    minx, miny = math.floor((minx - PAD) / CHUNK) * CHUNK, math.floor((miny - PAD) / CHUNK) * CHUNK
+    maxx, maxy = math.ceil((maxx + PAD) / CHUNK) * CHUNK, math.ceil((maxy + PAD) / CHUNK) * CHUNK
+    files = [fetch(x, y) for x in range(int(minx), int(maxx), CHUNK) for y in range(int(miny), int(maxy), CHUNK)]
+    print(f"  MDT05: {len(files)} bloques de {CHUNK / 1000:.0f} km", flush=True)
+    srcs = [rasterio.open(f) for f in files]
+    dem, tr = merge(srcs, nodata=-9999)
+    dem = dem[0].astype(np.float32)
+    nodata = dem < -1000
+    dem[nodata] = 0
+
+    # Ground level of each building: the lowest terrain under its outer ring, so that on a slope it sits into the hill.
+    coords = shapely.get_coordinates(shapely.get_exterior_ring(
+        shapely.get_geometry(b.geometry.values, 0)), return_index=True)
+    xy, idx = coords
+    inv = ~tr
+    col, row = inv * (xy[:, 0], xy[:, 1])
+    row = np.clip(row.astype(int), 0, dem.shape[0] - 1)
+    col = np.clip(col.astype(int), 0, dem.shape[1] - 1)
+    z = dem[row, col]
+    base = np.full(len(b), np.inf)
+    np.minimum.at(base, idx, z)
+    base[~np.isfinite(base)] = 0
+    b.drop(columns="geometry").assign(base=base.round(1)).to_parquet(BASE)
+
+    # Ground mesh: a coarser grid, local frame, north-west corner first.
+    W, H = maxx - minx, maxy - miny
+    step = max(20.0, math.ceil(math.sqrt(W * H / MAX_VERTS) / 5) * 5)
+    nx, nz = int(W // step) + 1, int(H // step) + 1
+    grid = np.zeros((nz, nx), np.float32)
+    gtr = from_origin(minx - step / 2, maxy + step / 2, step, step)
+    reproject(dem, grid, src_transform=tr, src_crs=25830, dst_transform=gtr, dst_crs=25830,
+              resampling=Resampling.average)
+    utm = lambda r: np.c_[np.array(r[0::2]) + GIRALDA[0], GIRALDA[1] - np.array(r[1::2])]
+    shapes = [(shapely.Polygon(utm(rings[0]), [utm(r) for r in rings[1:]]), m["id"])
+              for m in ground["munis"] for rings in m["rings"]]
+    muni = rasterize(shapes, out_shape=(nz, nx), transform=gtr, fill=255, dtype=np.uint8) if shapes \
+        else np.full((nz, nx), 255, np.uint8)
+    x0, z0 = minx - GIRALDA[0], -(maxy - GIRALDA[1])
+    out = struct.pack("<3f2I", x0, z0, step, nx, nz)
+    out += np.round(grid * 10).clip(-32000, 32000).astype("<i2").tobytes()
+    out += muni.tobytes()
+    (OUT / "terrain.bin").write_bytes(out)
+    print(f"cotas de {len(b)} edificios ({base.min():.0f}–{base.max():.0f} m); "
+          f"malla {nx}×{nz} cada {step:.0f} m, {len(out) / 1e6:.1f} MB")
+
+
+if __name__ == "__main__":
+    main()

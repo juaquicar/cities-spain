@@ -1,0 +1,10 @@
+{
+  "name": "sevilla-edificios",
+  "private": true,
+  "scripts": {
+    "deploy": "uv run python -m pipeline.sites --deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4"
+  }
+}

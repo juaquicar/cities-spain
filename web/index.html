@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sevilla, edificio a edificio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta name="description" content="Cada edificio de Sevilla y el Aljarafe en 3D, por época de construcción, uso, plantas y patrimonio. Datos del Catastro, IAPH, IGN y OpenStreetMap.">
+</head>
+<body>
+<canvas id="scene" aria-label="Mapa 3D de los edificios de Sevilla y el Aljarafe"></canvas>
+<div class="veil veil-top" aria-hidden="true"></div>
+<div class="veil veil-bottom" aria-hidden="true"></div>
+
+<header class="masthead">
+  <h1 id="title">Sevilla</h1>
+  <p class="dek">Cada edificio en pie, por su año de construcción.</p>
+  <label class="muni">
+    <span class="visually-hidden">Municipio</span>
+    <select id="muni"></select>
+  </label>
+  <label class="only"><input type="checkbox" id="only"> Ocultar el resto</label>
+</header>
+
+<nav class="modes" aria-label="Colorear por">
+  <button data-mode="0" aria-pressed="true">Época</button>
+  <button data-mode="1" aria-pressed="false">Uso</button>
+  <button data-mode="2" aria-pressed="false">Plantas</button>
+  <button data-mode="3" aria-pressed="false">Patrimonio</button>
+  <button class="about-open" aria-haspopup="dialog">Info</button>
+</nav>
+
+<div class="tally" aria-live="polite">
+  <span id="year" class="tally-year">&nbsp;</span>
+  <span class="tally-count"><span id="count">0</span> edificios</span>
+</div>
+
+<div class="find" role="search">
+  <input type="search" id="find" autocomplete="off" spellcheck="false" placeholder="Referencia catastral"
+    aria-label="Buscar por referencia catastral (14 caracteres)">
+</div>
+
+<aside id="panel" class="panel"></aside>
+
+<div id="card" class="card" hidden></div>
+<p class="howto">Arrastra para girar. Botón derecho o Mayús para desplazar. Rueda para acercar.</p>
+
+<footer class="timeline">
+  <button id="play" class="play" aria-label="Reproducir el crecimiento">
+    <svg viewBox="0 0 16 16" aria-hidden="true"><path id="play-icon" d="M4 2.5v11l9-5.5z"/></svg>
+  </button>
+  <canvas id="hist" aria-label="Edificios por año; arrastra para elegir el año"></canvas>
+</footer>
+
+<dialog id="about" class="about" aria-labelledby="about-title">
+  <button class="about-close" aria-label="Cerrar">×</button>
+  <h2 id="about-title">Sobre este mapa</h2>
+  <p>Los edificios de Sevilla y el Aljarafe, coloreados por el año en que se construyeron, su uso o su altura.
+  Proyecto sin ánimo de lucro, hecho por curiosidad.</p>
+  <p>Basado en <a href="https://github.com/alexbarakov/amsterdam-by-building" target="_blank" rel="noopener">LAYRS: Amsterdam</a>
+  de Alex Barakov (código abierto, MIT), que sigue a <a href="https://paris.bogachev.fr" target="_blank" rel="noopener">Paris, building by building</a>
+  de Sasha Bogachev. <a href="https://github.com/juaquicar/sevilla-aljarafe-edificio-a-edificio" target="_blank" rel="noopener">Código de este mapa</a>.</p>
+  <h3>Datos</h3>
+  <ul>
+    <li>Edificios, partes, plantas, año, uso y viviendas: Catastro INSPIRE (Dirección General del Catastro).
+      Uso libre citando a la D. G. del Catastro como autora y titular de la información.</li>
+    <li>Patrimonio: Instituto Andaluz del Patrimonio Histórico (IAPH), Patrimonio Inmueble de Andalucía, datos abiertos
+      de la Junta de Andalucía; fotos y artículos de Wikidata, Wikipedia y Wikimedia Commons (cada foto con su licencia).</li>
+    <li>Relieve: MDT05, © Instituto Geográfico Nacional (CC BY 4.0, scne.es).</li>
+    <li>Términos municipales y agua: © colaboradores de OpenStreetMap, ODbL.</li>
+  </ul>
+  <h3>Método</h3>
+  <p>El Catastro da plantas, no metros: cada planta cuenta 3 m, más medio metro de pretil. El año es el que
+  consta en el Catastro, que en el casco antiguo suele ser el de la última reforma importante, no el de la obra original.
+  Los edificios catalogados por el IAPH llevan su fecha de construcción cuando es anterior a la del Catastro.
+  Los edificios sin año toman la mediana de sus vecinos con fecha y aparecen más pálidos. El relieve viene del MDT de 5 m del IGN;
+  cada edificio se asienta en la cota más baja bajo su planta.</p>
+</dialog>
+
+<div id="loading" class="loading">Levantando la ciudad <span id="progress">0</span>%</div>
+<script type="module" src="app.js"></script>
+</body>
+</html>

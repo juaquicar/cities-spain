@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+data/
+web/data/
+node_modules/
+build/
+dist/
+.wrangler/
+sites/
