@@ -25,6 +25,7 @@ a { color: inherit; text-decoration-color: var(--accent); text-underline-offset:
 .masthead { position: fixed; top: calc(env(safe-area-inset-top, 0px) + var(--gutter)); left: var(--gutter); }
 h1 { margin: 0; font-size: clamp(34px, 4.4vw, 56px); font-weight: 800; letter-spacing: -0.035em; line-height: .9;
   border-left: 8px solid var(--accent); padding-left: 10px; }
+h1.long { font-size: clamp(28px, 3vw, 40px); }
 .dek { margin: 8px 0 10px; color: var(--muted); max-width: 30ch; font-size: 14px; line-height: 1.4; }
 .muni select { appearance: none; background: var(--paper) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23141414' stroke-width='1.6'/%3E%3C/svg%3E") no-repeat right 12px center;
   border: 1px solid var(--rule); border-radius: 999px; padding: 7px 34px 7px 14px; font-weight: 500; cursor: pointer;
@@ -102,8 +103,9 @@ h1 { margin: 0; font-size: clamp(34px, 4.4vw, 56px); font-weight: 800; letter-sp
   .dek, .howto, .find { display: none; }
   /* header in two rows: name and year on top, the municipality picker across the width below */
   .masthead { right: var(--gutter); top: calc(env(safe-area-inset-top, 0px) + 12px); }
-  h1 { font-size: 30px; border-left-width: 6px; padding-left: 8px; max-width: calc(100% - 110px);
+  h1, h1.long { font-size: 30px; border-left-width: 6px; padding-left: 8px; max-width: calc(100% - 110px);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-bottom: 2px; }
+  h1.long { font-size: 24px; }
   .muni { display: block; margin-top: 20px; }
   .muni select { width: 100%; max-width: none; padding: 9px 34px 9px 14px; font-size: 15px; }
   .only { font-size: 13px; }

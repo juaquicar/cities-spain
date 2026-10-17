@@ -28,18 +28,19 @@ from .s00_fetch_catastro import chosen
 from .s03_tiles import GIRALDA, OUT
 
 WCS = ("https://servicios.idee.es/wcs-inspire/mdt?service=WCS&version=2.0.1&request=GetCoverage"
-       "&CoverageId=Elevacion25830_5&format=image/tiff&subset=x({x0},{x1})&subset=y({y0},{y1})")
+       "&CoverageId=Elevacion25830_{res}&format=image/tiff&subset=x({x0},{x1})&subset=y({y0},{y1})")
 CACHE = Path("data/raw/mdt")
-CHUNK = 8000          # metres per WCS request
+CHUNK = 8000          # metres per WCS request of the 5 m model, fetched only where there are buildings
+CHUNK25 = 40000       # metres per request of the 25 m model, for the ground mesh over the whole area
 PAD = 2500            # metres of terrain around the municipalities
 MAX_VERTS = 450_000   # ground mesh budget
 BASE = OUT.parent / "base.parquet" if os.environ.get("SITE_OUT") else Path("data/base.parquet")
 
 
-def fetch(x0, y0):
-    f = CACHE / f"{x0}_{y0}.tif"
+def fetch(x0, y0, res=5, size=CHUNK):
+    f = CACHE / (f"{x0}_{y0}.tif" if res == 5 else f"{x0}_{y0}_{res}.tif")
     if not f.exists():
-        url = WCS.format(x0=x0, x1=x0 + CHUNK, y0=y0, y1=y0 + CHUNK)
+        url = WCS.format(res=res, x0=x0, x1=x0 + size, y0=y0, y1=y0 + size)
         for attempt in range(5):
             try:
                 r = requests.get(url, timeout=300)
@@ -68,36 +69,44 @@ def main():
             miny, maxy = min(miny, GIRALDA[1] - zs.max()), max(maxy, GIRALDA[1] - zs.min())
     minx, miny = math.floor((minx - PAD) / CHUNK) * CHUNK, math.floor((miny - PAD) / CHUNK) * CHUNK
     maxx, maxy = math.ceil((maxx + PAD) / CHUNK) * CHUNK, math.ceil((maxy + PAD) / CHUNK) * CHUNK
-    files = [fetch(x, y) for x in range(int(minx), int(maxx), CHUNK) for y in range(int(miny), int(maxy), CHUNK)]
-    print(f"  MDT05: {len(files)} bloques de {CHUNK / 1000:.0f} km", flush=True)
-    srcs = [rasterio.open(f) for f in files]
-    dem, tr = merge(srcs, nodata=-9999)
-    dem = dem[0].astype(np.float32)
-    nodata = dem < -1000
-    dem[nodata] = 0
 
     # Ground level of each building: the lowest terrain under its outer ring, so that on a slope it sits into the hill.
-    coords = shapely.get_coordinates(shapely.get_exterior_ring(
+    # One 5 m block at a time, only the blocks that hold buildings: a whole province would not fit merged in memory.
+    xy, idx = shapely.get_coordinates(shapely.get_exterior_ring(
         shapely.get_geometry(b.geometry.values, 0)), return_index=True)
-    xy, idx = coords
-    inv = ~tr
-    col, row = inv * (xy[:, 0], xy[:, 1])
-    row = np.clip(row.astype(int), 0, dem.shape[0] - 1)
-    col = np.clip(col.astype(int), 0, dem.shape[1] - 1)
-    z = dem[row, col]
+    keys = np.floor(xy / CHUNK).astype(np.int64) * CHUNK
+    blocks = np.unique(keys, axis=0)
+    print(f"  MDT05: {len(blocks)} bloques de {CHUNK / 1000:.0f} km con edificios", flush=True)
     base = np.full(len(b), np.inf)
-    np.minimum.at(base, idx, z)
+    for kx, ky in blocks:
+        sel = (keys[:, 0] == kx) & (keys[:, 1] == ky)
+        with rasterio.open(fetch(int(kx), int(ky))) as src:
+            dem = src.read(1)
+            col, row = ~src.transform * (xy[sel, 0], xy[sel, 1])
+        row = np.clip(row.astype(int), 0, dem.shape[0] - 1)
+        col = np.clip(col.astype(int), 0, dem.shape[1] - 1)
+        z = dem[row, col].astype(np.float64)
+        z[z < -1000] = np.inf
+        np.minimum.at(base, idx[sel], z)
     base[~np.isfinite(base)] = 0
     b.drop(columns="geometry").assign(base=base.round(1)).to_parquet(BASE)
 
-    # Ground mesh: a coarser grid, local frame, north-west corner first.
+    # Ground mesh: a coarser grid from the 25 m model, local frame, north-west corner first.
     W, H = maxx - minx, maxy - miny
     step = max(20.0, math.ceil(math.sqrt(W * H / MAX_VERTS) / 5) * 5)
     nx, nz = int(W // step) + 1, int(H // step) + 1
+    x25, y25 = math.floor(minx / CHUNK25) * CHUNK25, math.floor(miny / CHUNK25) * CHUNK25
+    files = [fetch(x, y, 25, CHUNK25) for x in range(x25, int(maxx), CHUNK25) for y in range(y25, int(maxy), CHUNK25)]
+    srcs = [rasterio.open(f) for f in files]
+    dem, tr = merge(srcs, nodata=-9999)
+    for s in srcs:
+        s.close()
+    dem = dem[0].astype(np.float32)
+    dem[dem < -1000] = 0
     grid = np.zeros((nz, nx), np.float32)
     gtr = from_origin(minx - step / 2, maxy + step / 2, step, step)
     reproject(dem, grid, src_transform=tr, src_crs=25830, dst_transform=gtr, dst_crs=25830,
-              resampling=Resampling.average)
+              resampling=Resampling.average if step >= 25 else Resampling.bilinear)
     utm = lambda r: np.c_[np.array(r[0::2]) + GIRALDA[0], GIRALDA[1] - np.array(r[1::2])]
     shapes = [(shapely.Polygon(utm(rings[0]), [utm(r) for r in rings[1:]]), m["id"])
               for m in ground["munis"] for rings in m["rings"]]

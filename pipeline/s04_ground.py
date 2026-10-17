@@ -4,6 +4,7 @@ web/data/ground.json: {"munis": [{"id", "rings": [[x, z, x, z, …], …]}], "wa
 Every polygon is a list of rings, the first the outline and the rest its holes; coordinates in metres, rounded.
 """
 import json
+import math
 import time
 import zlib
 from pathlib import Path
@@ -21,9 +22,10 @@ from .s03_tiles import OUT, to_local
 
 OVERPASS = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter",
             "https://overpass.private.coffee/api/interpreter"]
-INE = {"41900": "41091"}  # the Catastro numbers Sevilla 41900; INE and OSM use 41091
+# the Catastro numbers Sevilla and the four newest municipalities its own way; INE and OSM use these
+INE = {"41900": "41091", "41103": "41901", "41104": "41902", "41105": "41903", "41106": "41904"}
 CACHE = Path("data/raw/osm")
-PROVINCE = "36.8,-6.6,38.2,-5.0"  # Sevilla province, south-west-north-east; cheaper for Overpass than an area
+PROVINCE = "36.8,-6.6,38.25,-4.6"  # Sevilla province, south-west-north-east; cheaper for Overpass than an area
 TO_UTM = Transformer.from_crs(4326, 25830, always_xy=True).transform
 
 
@@ -84,9 +86,14 @@ def polys(geom, tol):
 def main():
     codes = chosen()
     ine = "|".join(INE.get(c, c) for c in codes)
-    rels = overpass(f'[out:json][timeout:240];rel["boundary"="administrative"]["admin_level"="8"]'
-                    f'["ine:municipio"~"^({ine})$"]({PROVINCE});out geom;',
-                    "munis_" + "_".join(codes) if len(codes) < 6 else f"munis_{len(codes)}_{zlib.crc32(ine.encode()):08x}")
+    # a dozen municipalities per request: the whole province with geometry is more than Overpass will answer
+    rels = []
+    for k in range(0, len(codes), 12):
+        part = "|".join(INE.get(c, c) for c in codes[k:k + 12])
+        rels += overpass(f'[out:json][timeout:240];rel["boundary"="administrative"]["admin_level"="8"]'
+                         f'["ine:municipio"~"^({part})$"]({PROVINCE});out geom;',
+                         "munis_" + "_".join(codes[k:k + 12]) if len(codes) < 6
+                         else f"munis_{len(codes[k:k + 12])}_{zlib.crc32(part.encode()):08x}")
     back = {INE.get(c, c): c for c in codes}
     munis, shapes = [], []
     for el in rels:
@@ -101,10 +108,26 @@ def main():
     to_ll = Transformer.from_crs(25830, 4326, always_xy=True).transform
     w, s = to_ll(minx, miny)
     e, n = to_ll(maxx, maxy)
-    bbox = f"{s:.4f},{w:.4f},{n:.4f},{e:.4f}"
-    els = overpass(f'[out:json][timeout:240];(way["natural"="water"]({bbox});rel["natural"="water"]({bbox});'
-                   f'way["waterway"="riverbank"]({bbox});rel["waterway"="riverbank"]({bbox}););out geom;',
-                   f"water_{bbox.replace(',', '_')}")
+    # water in cells of at most ~0.4°, for the same reason; a cell Overpass will not answer is split in four
+    def water_in(s, w, n, e, depth=0):
+        bbox = f"{s:.4f},{w:.4f},{n:.4f},{e:.4f}"
+        try:
+            return overpass(f'[out:json][timeout:240];(way["natural"="water"]({bbox});rel["natural"="water"]({bbox});'
+                            f'way["waterway"="riverbank"]({bbox});rel["waterway"="riverbank"]({bbox}););out geom;',
+                            f"water_{bbox.replace(',', '_')}")
+        except SystemExit:
+            if depth >= 2:
+                raise
+            print(f"  agua {bbox}: en cuatro partes", flush=True)
+            ms, mw = (s + n) / 2, (w + e) / 2
+            return [el for q in ((s, w, ms, mw), (s, mw, ms, e), (ms, w, n, mw), (ms, mw, n, e))
+                    for el in water_in(*q, depth + 1)]
+
+    nx, ny = max(1, math.ceil((e - w) / 0.4)), max(1, math.ceil((n - s) / 0.4))
+    els = [el for i in range(nx) for j in range(ny)
+           for el in water_in(s + (n - s) * j / ny, w + (e - w) * i / nx, s + (n - s) * (j + 1) / ny, w + (e - w) * (i + 1) / nx)]
+    # a body of water across two cells comes twice
+    els = list({(el["type"], el["id"]): el for el in els}.values())
     water = [g for g in map(assemble, els) if g is not None and not g.is_empty]
     water = unary_union([shapely.make_valid(g) for g in water]).intersection(area.buffer(1500)) if water else Polygon()
     ground = dict(munis=munis, water=polys(water, 2))

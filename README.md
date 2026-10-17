@@ -1,9 +1,10 @@
 # Sevilla y Aljarafe, edificio a edificio
 
-Cada edificio en pie de Sevilla y el Aljarafe en 3D, coloreado por época de construcción, uso o número de plantas,
+Cada edificio en pie de Sevilla, el Aljarafe y el resto de la provincia en 3D, coloreado por época de construcción, uso o número de plantas,
 con filtro por municipio. Pipeline en Python que alimenta un visor three.js sin build step.
 
-**En vivo:** [sevilla-aljarafe.quijada.uk](https://sevilla-aljarafe.quijada.uk) ·
+**En vivo:** [sevilla-provincia.quijada.uk](https://sevilla-provincia.quijada.uk) ·
+[sevilla-aljarafe.quijada.uk](https://sevilla-aljarafe.quijada.uk) ·
 [sevilla.quijada.uk](https://sevilla.quijada.uk) · [aljarafe.quijada.uk](https://aljarafe.quijada.uk) ·
 [tomares.quijada.uk](https://tomares.quijada.uk)
 
@@ -36,9 +37,9 @@ Catastro INSPIRE + OSM ──► pipeline/ (Python) ──► web/data/ (teselas
 uv sync
 uv run python -m pipeline.build tomares            # primer municipio
 uv run python -m pipeline.build sevilla mairena    # añade más (se acumulan)
-uv run python -m pipeline.build todos              # Sevilla + todo el Aljarafe
+uv run python -m pipeline.build todos              # los 106 municipios de la provincia
 python3 -m http.server 8642 --directory web        # http://localhost:8642
-uv run python -m pipeline.sites --deploy           # publica los cuatro sitios (tras `npx wrangler login`; con varias cuentas, CLOUDFLARE_ACCOUNT_ID)
+uv run python -m pipeline.sites --deploy           # publica los cinco sitios (tras `npx wrangler login`; con varias cuentas, CLOUDFLARE_ACCOUNT_ID)
 ```
 
 ### Sitios publicados
@@ -52,6 +53,7 @@ uv run python -m pipeline.sites --deploy           # publica los cuatro sitios (
 | https://sevilla.quijada.uk | Sevilla | `sevilla-edificios` |
 | https://aljarafe.quijada.uk | Los 31 del Aljarafe, sin la capital | `aljarafe` |
 | https://sevilla-aljarafe.quijada.uk | Sevilla + Aljarafe (32) | `sevilla-aljarafe` |
+| https://sevilla-provincia.quijada.uk | Toda la provincia (106) | `sevilla-provincia` |
 
 ### Alturas LiDAR
 

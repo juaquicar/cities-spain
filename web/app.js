@@ -15,15 +15,25 @@ const WORKERS = Math.min(4, navigator.hardwareConcurrency || 2);
 const MODE = { period: 0, use: 1, floors: 2, heritage: 3 };
 const OLD = 1800; // years before this share a compressed strip at the left of the timeline
 
+// the table comes in parts when it is large (a host limits the size of each file); joined back here
+const cityP = fetch('data/city.json').then(r => r.json());
+const joinBufs = bufs => {
+  const all = new Uint8Array(bufs.reduce((s, b) => s + b.byteLength, 0));
+  let o = 0;
+  for (const b of bufs) { all.set(new Uint8Array(b), o); o += b.byteLength; }
+  return all.buffer;
+};
 const [config, attrBuf, heritage, ground] = await Promise.all([
-  fetch('data/city.json').then(r => r.json()),
-  fetch('data/attrs.bin').then(r => r.arrayBuffer()),
+  cityP,
+  cityP.then(c => Promise.all((c.attrParts || ['attrs.bin']).map(f => fetch(`data/${f}`).then(r => r.arrayBuffer())))).then(joinBufs),
   fetch('data/monumentos.json').then(r => r.ok ? r.json() : {}).catch(() => ({})),
   fetch('data/ground.json').then(r => r.ok ? r.json() : { munis: [], water: [] }).catch(() => ({ munis: [], water: [] })),
 ]);
 const periods = config.periods, uses = config.uses, munis = config.municipios;
 const muniById = Object.fromEntries(munis.map(m => [m.id, m]));
 document.title = `${config.label}, edificio a edificio`;
+// haze starts further out when the whole area is wider than a city (a province)
+const FOG = Math.max(1, config.home.span / 40000);
 const fmt = n => n.toLocaleString('es-ES', { useGrouping: 'always' });
 
 // ---------- Per-building table ----------
@@ -64,14 +74,14 @@ renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setClearColor(SKY);
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(35, 1, 10, 90000);
+const camera = new THREE.PerspectiveCamera(35, 1, 10, 400000);
 const controls = new MapControls(camera, canvas);
 controls.enableDamping = true;
 controls.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
 controls.rotateSpeed = 0.6;
 controls.maxPolarAngle = Math.PI * 0.47;
 controls.minDistance = 60;
-controls.maxDistance = 60000;
+controls.maxDistance = Math.max(60000, config.home.span * 2);
 
 function view(x, z, span, azimuth = 200, elevation = 40) {
   // a portrait screen sees less width at the same distance: step back so the area still fits
@@ -117,7 +127,7 @@ scene.add(flat);
 const groundUniforms = {
   uMuni: { value: -1 }, uLand: { value: new THREE.Color(LAND) }, uSel: { value: new THREE.Color(LAND_SEL) },
   uDim: { value: new THREE.Color(LAND_DIM) }, uOut: { value: new THREE.Color(SKY) },
-  uFogColor: { value: new THREE.Color(SKY) }, uFog: { value: new THREE.Vector2(9000, 26000) },
+  uFogColor: { value: new THREE.Color(SKY) }, uFog: { value: new THREE.Vector2(9000 * FOG, 26000 * FOG) },
 };
 if (T) {
   const n = T.nx * T.nz, pos = new Float32Array(n * 3), mun = new Float32Array(n);
@@ -194,7 +204,7 @@ const uniforms = {
   uHover: { value: -1 },
   uSelected: { value: -1 },
   uFogColor: { value: col(SKY) },
-  uFog: { value: new THREE.Vector2(9000, 26000) },
+  uFog: { value: new THREE.Vector2(9000 * FOG, 26000 * FOG) },
 };
 
 const VERT = /* glsl */`
@@ -530,6 +540,7 @@ function setMuni(id, fly = true) {
   select.value = String(munis.length > 1 ? id : munis[0].id);
   const m = muniById[id];
   title.textContent = m ? m.name : config.label;
+  title.classList.toggle('long', title.textContent.length > 16);
   only.parentElement.hidden = munis.length < 2 || id < 0;
   select.parentElement.hidden = munis.length < 2;
   if (fly) {

@@ -2,7 +2,7 @@
 
 Local frame: metres from the Giralda, x east, z south (three.js, y up).
 Tile layout (little-endian, every section 4-byte aligned):
-  header  u32 magic, nB, nP, nR, nV; f32 originX, originZ
+  header  u32 magic, nB, nP, nR, nV; f32 originX, originZ (the tile's centre)
   B       u32 gid[nB]; i16 year[nB]; u8 flag[nB]; u8 period[nB]; u8 floors[nB]; u8 muni[nB]; u8 use[nB]; u8 mon[nB];
           i16 base[nB] (ground level, decimetres; s06_terreno)
           u32 partStart[nB+1]
@@ -27,10 +27,12 @@ from .periods import PERIODS, period_of
 from .s00_fetch_catastro import chosen
 
 GIRALDA = Transformer.from_crs(4326, 25830, always_xy=True).transform(-5.99260, 37.38620)
-TILE = 600.0
+TILE = float(os.environ.get("SITE_TILE", 600))  # metres; a whole province takes bigger tiles, so fewer meshes to draw
 SIMPLIFY = 0.2
 OUT = Path(os.environ.get("SITE_OUT", "web/data"))  # pipeline.sites builds each site into its own folder
 MAGIC = 0x33565153  # 'SQV3'
+DROPPED = [0]       # rings out of i16 range, reported at the end
+PACK_MAX = 8e6      # bytes per pack and per part of the attribute table
 USES = [  # index = use code from s02_attributes
     ("Sin uso", "#c9c6bd"), ("Residencial", "#e8b04a"), ("Agrario", "#7aa34f"), ("Industrial", "#7d6fa8"),
     ("Oficinas", "#2f6fa8"), ("Comercial", "#d2493a"), ("Servicios públicos", "#2a9d8f"),
@@ -65,7 +67,11 @@ def pack_tile(origin, rows):
             for ring, hole in rings_of(geom):
                 if len(ring) < 3:
                     continue
-                verts.append(np.round((to_local(ring) - origin) * 10).astype(np.int16))
+                v = np.round((to_local(ring) - origin) * 10)
+                if np.abs(v).max() > 32767:  # a few rural "buildings" spread over kilometres: their far pieces go
+                    DROPPED[0] += 1
+                    continue
+                verts.append(v.astype(np.int16))
                 holes.append(hole)
                 vert_start.append(vert_start[-1] + len(ring))
             ring_start.append(len(holes))
@@ -134,31 +140,35 @@ def main():
     OUT.mkdir(parents=True, exist_ok=True)
     index, blobs = [], {}
     for (tx, tz), grp in b.groupby(["tx", "tz"]):
-        origin = np.array([tx * TILE, tz * TILE])
+        origin = np.array([(tx + 0.5) * TILE, (tz + 0.5) * TILE])  # the centre: vertices are i16 decimetres from it
         rows = [dict(gid=gid[r.ref], year=int(r.year), flag=int(r.date_flag), period=int(r.period),
                      floors=int(r.floors), muni=int(r.muni), use=int(r.use), mon=int(r.mon),
                      base=int(round(r.base * 10)), parts=parts[r.ref])
                 for r in grp.itertuples()]
         name = f"{tx}_{tz}"
         blobs[name] = pack_tile(origin, rows)
-        cx, cz = origin + TILE / 2
+        cx, cz = origin
         index.append(dict(file=name, n=len(rows), dist=round(float(np.hypot(cx, cz)))))
     index.sort(key=lambda t: t["dist"])
 
-    # A few packs, nearest the Giralda first, so the city loads centre-out in few requests.
-    n_packs = max(1, min(16, len(index) // 10))
-    per = -(-len(index) // n_packs)
-    packs = []
-    for k in range(n_packs):
-        chunk = index[k * per:(k + 1) * per]
-        if not chunk:
-            break
-        name, blob = f"pack{k}.bin", bytearray()
-        for t in chunk:
-            t.update(pack=name, offset=len(blob), length=len(blobs[t["file"]]))
-            blob += blobs[t["file"]]
-        (OUT / name).write_bytes(blob)
-        packs.append(name)
+    # A few packs, nearest the Giralda first, so the city loads centre-out in few requests; each one well under the
+    # host's per-file limit (Cloudflare: 25 MiB).
+    total = sum(len(v) for v in blobs.values())
+    target = min(PACK_MAX, max(total / 16, 1e6))
+    packs, blob = [], bytearray()
+
+    def flush():
+        if blob:
+            (OUT / packs[-1]).write_bytes(blob)
+
+    for t in index:
+        if not packs or (blob and len(blob) + len(blobs[t["file"]]) > target):
+            flush()
+            packs.append(f"pack{len(packs)}.bin")
+            blob = bytearray()
+        t.update(pack=packs[-1], offset=len(blob), length=len(blobs[t["file"]]))
+        blob += blobs[t["file"]]
+    flush()
 
     # Per-building table for the card, the filter and the histogram, in gid order.
     attrs = np.zeros(len(b), dtype=[("ref", "S14"), ("muni", "u1"), ("use", "u1"), ("flag", "u1"), ("floors", "u1"),
@@ -185,7 +195,13 @@ def main():
     attrs["area"] = b.area
     attrs["lon"], attrs["lat"] = Transformer.from_crs(25830, 4326, always_xy=True).transform(
         b.geometry.centroid.x.to_numpy(), b.geometry.centroid.y.to_numpy())
-    (OUT / "attrs.bin").write_bytes(attrs.tobytes())
+    for old in OUT.glob("attrs*.bin"):
+        old.unlink()
+    rows = max(1, int(PACK_MAX // attrs.dtype.itemsize))
+    attr_parts = []
+    for k in range(0, len(attrs), rows):
+        attr_parts.append("attrs.bin" if len(attrs) <= rows else f"attrs{k // rows}.bin")
+        (OUT / attr_parts[-1]).write_bytes(attrs[k:k + rows].tobytes())
 
     munis = []
     for code in chosen():
@@ -200,13 +216,13 @@ def main():
     x0, x1, z0, z1 = b.x.quantile(0.01), b.x.quantile(0.99), b.z.quantile(0.01), b.z.quantile(0.99)
     home = dict(cx=round(float((x0 + x1) / 2), 1), cz=round(float((z0 + z1) / 2), 1), span=float(max(x1 - x0, z1 - z0)))
     config = dict(
-        city="sevilla", label=os.environ.get("SITE_LABEL") or (munis[0]["name"] if len(munis) == 1 else "Sevilla y Aljarafe"), tileSize=TILE, origin=GIRALDA,
-        home=dict(x=home["cx"], z=home["cz"], azimuth=200, elevation=40, span=min(home["span"] * 1.1, 40000)),
+        city="sevilla", label=os.environ.get("SITE_LABEL") or (munis[0]["name"] if len(munis) == 1 else "Provincia de Sevilla"), tileSize=TILE, origin=GIRALDA,
+        home=dict(x=home["cx"], z=home["cz"], azimuth=200, elevation=40, span=min(home["span"] * 1.1, 160000)),
         periods=[dict(key=k, label=l, from_=a, to=bb, color=col) for k, l, a, bb, col in PERIODS],
         uses=[dict(label=l, color=c) for l, c in USES],
         municipios=munis,
         yearMin=int(b.year.min()), yearMax=int(b.year.max()),
-        attrStride=attrs.dtype.itemsize,
+        attrStride=attrs.dtype.itemsize, attrParts=attr_parts,
         attrFields={k: int(v[1]) for k, v in attrs.dtype.fields.items()},
         tiles=index, packs=packs,
         stats=dict(buildings=len(b), rounded=int((b.date_flag == 1).sum()), estimated=int((b.date_flag == 2).sum()),
@@ -215,7 +231,8 @@ def main():
     )
     (OUT / "city.json").write_text(json.dumps(config, ensure_ascii=False, separators=(",", ":")).replace('"from_"', '"from"'))
     total = sum((OUT / p).stat().st_size for p in packs)
-    print(f"{len(index)} teselas en {len(packs)} packs, {total/1e6:.1f} MB; attrs {attrs.nbytes/1e6:.1f} MB")
+    print(f"{len(index)} teselas en {len(packs)} packs, {total/1e6:.1f} MB; attrs {attrs.nbytes/1e6:.1f} MB"
+          + (f"; {DROPPED[0]} anillos fuera de rango descartados" if DROPPED[0] else ""))
 
 
 if __name__ == "__main__":

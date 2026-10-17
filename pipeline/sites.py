@@ -14,23 +14,27 @@ import subprocess
 import sys
 from pathlib import Path
 
-from .municipios import ORDER
+from .municipios import ALJARAFE, ORDER
 
 ACCOUNT = os.environ.get("CLOUDFLARE_ACCOUNT_ID")  # unset: wrangler takes the logged-in account
-# name, municipality codes (None = all built), domain, worker, title
+# name, municipality codes (None = all built), domain, worker, title, what the page says it shows
 SITES = [
-    ("tomares", ["41093"], "tomares.quijada.uk", "tomares", None),
-    ("sevilla", ["41900"], "sevilla.quijada.uk", "sevilla-edificios", None),
-    ("aljarafe", [c for c in ORDER if c != "41900"], "aljarafe.quijada.uk", "aljarafe", "Aljarafe"),
-    ("sevilla-aljarafe", None, "sevilla-aljarafe.quijada.uk", "sevilla-aljarafe", None),
+    ("tomares", ["41093"], "tomares.quijada.uk", "tomares", None, "Tomares"),
+    ("sevilla", ["41900"], "sevilla.quijada.uk", "sevilla-edificios", None, "Sevilla"),
+    ("aljarafe", ALJARAFE, "aljarafe.quijada.uk", "aljarafe", "Aljarafe", "el Aljarafe"),
+    ("sevilla-aljarafe", ["41900", *ALJARAFE], "sevilla-aljarafe.quijada.uk", "sevilla-aljarafe", "Sevilla y Aljarafe",
+     "Sevilla y el Aljarafe"),
+    ("sevilla-provincia", None, "sevilla-provincia.quijada.uk", "sevilla-provincia", "Provincia de Sevilla",
+     "la provincia de Sevilla"),
 ]
+TILE = {"sevilla-provincia": 2400}  # metres; default 600 (s03_tiles)
 STEPS = ["pipeline.s04_ground", "pipeline.s06_terreno", "pipeline.s03_tiles"]
 
 
-def build(name, codes, label=None):
+def build(name, codes, label=None, place=None):
     out = Path("build") / name / "data"
     out.mkdir(parents=True, exist_ok=True)
-    env = dict(os.environ, SITE_OUT=str(out), SITE_MUNIS=",".join(codes or ORDER), SITE_LABEL=label or "")
+    env = dict(os.environ, SITE_OUT=str(out), SITE_MUNIS=",".join(codes or ORDER), SITE_LABEL=label or "", SITE_TILE=str(TILE.get(name, 600)))
     for step in STEPS:
         print(f"— {name}: {step.split('.')[-1]}", flush=True)
         subprocess.run([sys.executable, "-m", step], env=env, check=True)
@@ -38,6 +42,9 @@ def build(name, codes, label=None):
     shutil.rmtree(dist, ignore_errors=True)
     shutil.copytree("web", dist, ignore=shutil.ignore_patterns("data"))
     shutil.copytree(out, dist / "data", ignore=shutil.ignore_patterns("*.parquet"))
+    if place:  # the page's texts name the area this site shows
+        page = dist / "index.html"
+        page.write_text(page.read_text().replace("Sevilla y el Aljarafe", place))
     return dist
 
 
@@ -58,10 +65,10 @@ def config(name, domain, worker):
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     deploy = "--deploy" in sys.argv
-    for name, codes, domain, worker, label in SITES:
+    for name, codes, domain, worker, label, place in SITES:
         if args and name not in args:
             continue
-        dist = build(name, codes, label)
+        dist = build(name, codes, label, place)
         size = sum(f.stat().st_size for f in dist.rglob("*") if f.is_file())
         print(f"{name}: {size / 1e6:.1f} MB en {dist}", flush=True)
         if deploy:
