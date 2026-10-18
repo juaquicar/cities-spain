@@ -268,7 +268,7 @@ def main():
     for name, codes, domain, worker, label, place, region in SITES:
         if args and name not in args:
             continue
-        if region not in REGIONS or not (Path("data") / ("" if region == "sevilla" else region) / "web").is_dir():
+        if region not in REGIONS or not (Path("data") / ("" if region == "sevilla" else region) / "buildings.parquet").exists():
             print(f"{name}: sin datos de {region} todavía; se omite", flush=True)
             continue
         dist = build(name, codes, label, place, region, pages_only)
