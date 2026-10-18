@@ -13,10 +13,12 @@ elige ciudad y, en las grandes, qué municipios, con el peso de la descarga a la
 [sevilla.quijada.uk](https://sevilla.quijada.uk) · [aljarafe.quijada.uk](https://aljarafe.quijada.uk) ·
 [tomares.quijada.uk](https://tomares.quijada.uk)
 
-## Créditos
+## Autor y créditos
+
+Hecho por **[Juanma Quijada](https://www.linkedin.com/in/juanmaquijada)**: proyecto personal sin ánimo de lucro.
 
 Basado en [amsterdam-by-building](https://github.com/alexbarakov/amsterdam-by-building) (LAYRS: Amsterdam) de
-Alex Barakov, con licencia MIT, que a su vez sigue la arquitectura de
+[Alex Barakov](https://www.linkedin.com/in/alexanderbarakov), con licencia MIT, que a su vez sigue la arquitectura de
 [Paris, building by building](https://paris.bogachev.fr) de Sasha Bogachev. El mérito de la arquitectura original
 es suyo; este fork la adapta a Catastro, IAPH, IGN y OSM, añade el enriquecimiento patrimonial, el relieve y el
 despliegue en varios sitios.
