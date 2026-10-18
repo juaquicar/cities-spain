@@ -15,6 +15,7 @@
 <script>try { const t = localStorage.getItem('tema'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
 </head>
 <body>
+<video id="ar-video" class="ar-video" playsinline muted autoplay hidden></video>
 <canvas id="scene" aria-label="Mapa 3D de los edificios de Sevilla y el Aljarafe"></canvas>
 <div class="veil veil-top" aria-hidden="true"></div>
 <div class="veil veil-bottom" aria-hidden="true"></div>
@@ -35,6 +36,7 @@
     <a class="change" id="change" href="../" hidden>Cambiar municipios</a>
     <button class="change" id="g-see" aria-pressed="false" hidden title="Los imprescindibles, con su nombre (V)">Qué ver</button>
     <button class="change" id="g-routes" aria-expanded="false" aria-controls="routes" hidden>Rutas</button>
+    <button class="change" id="g-ar" hidden title="Patrimonio aumentado: la cámara del móvil con los nombres de lo que ves">Ver con la cámara</button>
   </div>
 </header>
 
@@ -96,6 +98,24 @@
   </div>
 </footer>
 
+<button id="ar-start" class="ar-start" hidden>Ver con la cámara lo que tengo delante</button>
+<section id="ar" class="ar" hidden aria-label="Patrimonio aumentado">
+  <div id="ar-tags" class="ar-tags"></div>
+  <div class="ar-reticle" aria-hidden="true"></div>
+  <div id="ar-arrow" class="ar-arrow" hidden></div>
+  <div class="ar-top">
+    <button id="ar-close" class="ar-btn" aria-label="Salir de la cámara">×</button>
+    <p id="ar-status" class="ar-status" aria-live="polite">Buscando tu posición…</p>
+  </div>
+  <p id="ar-hint" class="ar-hint" hidden>Apunta a un edificio para saber qué es. Si los nombres no caen sobre su sitio,
+    desliza a los lados.</p>
+  <button id="ar-look" class="ar-look" hidden></button>
+  <div class="ar-bottom">
+    <button id="ar-ghost" class="ar-btn" aria-pressed="false" title="Los edificios coloreados por época sobre la cámara">Épocas</button>
+    <button id="ar-routes" class="ar-btn">Rutas</button>
+  </div>
+</section>
+
 <p id="toast" class="toast" role="status" hidden></p>
 
 <dialog id="about" class="about" aria-labelledby="about-title">
@@ -128,6 +148,11 @@
   <p class="keys"><kbd>1</kbd>–<kbd>4</kbd> colorear por · <kbd>Espacio</kbd> reproducir · <kbd>H</kbd> vista inicial ·
   <kbd>R</kbd> dar la vuelta · <kbd>N</kbd> noche o día · <kbd>V</kbd> qué ver · <kbd>←</kbd> <kbd>→</kbd> paradas de la ruta ·
   <kbd>Esc</kbd> cerrar la ficha</p>
+  <h3>Ver con la cámara</h3>
+  <p>En el móvil, «Ver con la cámara» usa la cámara, el GPS y la brújula: pone el nombre a los monumentos que tienes
+  alrededor (y dice si quedan detrás de algo), te dice qué edificio estás mirando, con su año, época y plantas, y en una
+  ruta te lleva de parada en parada. La brújula del móvil se desvía a veces: desliza a los lados para corregirla.
+  Nada sale del teléfono.</p>
 </dialog>
 
 <div id="loading" class="loading">

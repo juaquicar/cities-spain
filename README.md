@@ -76,6 +76,19 @@ relevantes que caben sin pisarse) y «Rutas» abre paseos parada a parada, con l
 una, Anterior/Siguiente y el enlace «Abrir a pie en Google Maps» (`#ruta=id&parada=n` en el enlace). Al fijar un
 monumento con artículo, la ficha añade dos o tres frases del resumen de Wikipedia y «Cómo llegar».
 
+### Ver con la cámara (patrimonio aumentado)
+
+En el móvil, «Ver con la cámara» pone la cámara de fondo y encima la ciudad vista desde donde estás: el GPS da la
+posición (pasada al marco local con un ajuste por mínimos cuadrados sobre los edificios cercanos, que llevan lon/lat y
+x/z), la brújula y el giroscopio la orientación (`deviceorientationabsolute` en Android, `webkitCompassHeading` en iOS) y
+el ojo va a 1,6 m sobre la mediana de las cotas de los edificios de alrededor. La escena no se dibuja (o se dibuja a
+medias con «Épocas»), pero sirve para saber qué edificio hay bajo la retícula («Estás mirando»: nombre, año, época,
+plantas, distancia) y si cada monumento con nombre está a la vista o detrás de algo. En una ruta empieza por la parada
+más cercana, una flecha en el borde señala la siguiente y al llegar (25 m) abre su ficha. Deslizar a los lados corrige la
+brújula; tocar un edificio abre su ficha. `#ar=demo` simula estar junto al primer imprescindible, sin cámara ni sensores.
+En el portal, «Estoy en la calle» busca la ciudad y los municipios más cercanos y abre el visor con la cámara a punto
+(`#ar=1`).
+
 ### Sitios publicados
 
 `pipeline/sites.py` rehace suelo, terreno y teselas para cada selección de municipios en `build/<sitio>/`, monta
@@ -95,8 +108,8 @@ con el norte primero; referencia `<parcela foral>-<edificio>`. CC BY-SA © Gipuz
 
 ### App Android
 
-`android/` es una app mínima (WebView, sin dependencias, ~10 kB) que abre el portal a pantalla completa: las páginas del
-portal se quedan en la app y cualquier otro enlace (Wikipedia, Google Maps, LinkedIn) se abre en el navegador; acepta
+`android/` es una app mínima (WebView, sin dependencias, ~11 kB) que abre el portal a pantalla completa: pasa a Android
+los permisos de cámara y ubicación que pide «Ver con la cámara»; las páginas del portal se quedan en la app y cualquier otro enlace (Wikipedia, Google Maps, LinkedIn) se abre en el navegador; acepta
 enlaces a spain-cities.quijada.uk. El portal la ofrece en `app/ciudades-de-espana.apk` (botón «App Android», oculto
 dentro de la propia app, que se identifica con `CiudadesApp` en el user agent).
 

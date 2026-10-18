@@ -2,6 +2,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
   <uses-permission android:name="android.permission.INTERNET"/>
   <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+  <!-- "Ver con la cámara": the camera, where you are and the compass (sensors need no permission) -->
+  <uses-permission android:name="android.permission.CAMERA"/>
+  <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+  <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+  <uses-feature android:name="android.hardware.camera.any" android:required="false"/>
+  <uses-feature android:name="android.hardware.location.gps" android:required="false"/>
+  <uses-feature android:name="android.hardware.sensor.compass" android:required="false"/>
   <application android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher"
       android:theme="@style/Theme.Ciudades" android:hardwareAccelerated="true" android:allowBackup="true">
     <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTask"

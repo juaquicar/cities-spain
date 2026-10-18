@@ -884,6 +884,7 @@ function goSpot(p, span = 650, az = 200) {
   if (state.muni >= 0 && p.muni !== state.muni) setMuni(-1, false);
   if (p.g >= 0 && B.year[p.g] > state.year) setYear(yMax);
   pinCard(-1);
+  if (ar) { pinCard(p.g, innerWidth / 2, innerHeight / 2, p.g >= 0 ? null : p); return; }
   const s = narrow.matches ? span * 0.55 : 0, r = THREE.MathUtils.degToRad(az);
   flyTo(view(p.x + s * Math.sin(r), p.z + s * Math.cos(r), span, az, 38));
   clearTimeout(pinTimer);
@@ -1002,7 +1003,7 @@ routesBtn.onclick = () => openRoutes(routesBox.hidden);
 routesBox.querySelector('.close').onclick = () => openRoutes(false);
 routesList.onclick = e => {
   const b = e.target.closest('button[data-k]');
-  if (b) startWalk(ROUTES[+b.dataset.k]);
+  if (b) startWalk(ROUTES[+b.dataset.k], ar ? nearestStop(ROUTES[+b.dataset.k]) : 0);
 };
 function startWalk(r, k = 0) {
   const stops = r.stops.map(s => ({ ...s, at: new THREE.Vector3(s.x, groundAt(s.x, s.z) + 3, s.z) }));
@@ -1154,6 +1155,7 @@ addEventListener('keydown', e => {
   else if (k === 'n') setTheme(theme === 'noche' ? 'dia' : 'noche');
   else if (k === 'v' && SEE.length) setSee(!seeOn);
   else if (walk && (k === 'arrowright' || k === 'arrowleft')) { e.preventDefault(); goStop(walk.k + (k === 'arrowright' ? 1 : -1)); }
+  else if (k === 'escape' && ar) exitAR();
   else if (k === 'escape') { if (!routesBox.hidden) openRoutes(false); else { if (walk) endWalk(); pinCard(-1); } }
   else return;
 });
@@ -1178,6 +1180,360 @@ if (document.body.dataset.portal) {
   }
   change.hidden = false;
 }
+
+// ---------- Patrimonio aumentado: the phone's camera, GPS and compass, with the city's names over the picture ----------
+// The scene becomes the street seen from the GPS fix at eye height, turned as the phone is turned. The buildings are not
+// drawn over the camera (or drawn faintly, "Épocas") but still answer what is in front (the reticle) and which names are in
+// sight or behind something. GPS to the local frame: a plane fitted to the nearby buildings, whose rows carry both.
+// #ar=1 (from the portal's "Cerca de mí") offers the camera on arrival; #ar=demo stands at the map's centre without sensors.
+const arBtn = document.getElementById('g-ar'), arStart = document.getElementById('ar-start');
+const arBox = document.getElementById('ar'), arVideo = document.getElementById('ar-video');
+const arStatus = document.getElementById('ar-status'), arLook = document.getElementById('ar-look');
+const arTags = document.getElementById('ar-tags'), arArrow = document.getElementById('ar-arrow');
+const arGhostBtn = document.getElementById('ar-ghost'), arHint = document.getElementById('ar-hint');
+const AR_HASH = new URLSearchParams(location.hash.slice(1)).get('ar');
+const CAN_AR = !!navigator.mediaDevices?.getUserMedia && 'DeviceOrientationEvent' in window && matchMedia('(pointer: coarse)').matches;
+arBtn.hidden = !CAN_AR && !AR_HASH;
+const d2r = THREE.MathUtils.degToRad, r2d = THREE.MathUtils.radToDeg;
+const EYE = 1.6, LONG_FOV = 67; // metres; degrees across the long side of a phone's main camera
+// eye level: the buildings sit on the lowest ground under them, so stand on the median of the nearby ones' bases
+function eyeAt(x, z) {
+  const bases = [];
+  for (let i = 0; i < N; i++) if (B.ok[i]) {
+    const o = i * S, dx = dv.getFloat32(o + F.x, true) - x, dz = dv.getFloat32(o + F.z, true) - z;
+    if (dx * dx + dz * dz < 2500) bases.push(dv.getFloat32(o + F.base, true));
+  }
+  bases.sort((a, b) => a - b);
+  return (bases.length >= 3 ? Math.min(groundAt(x, z), bases[bases.length >> 1]) : groundAt(x, z)) + EYE;
+}
+const metres = m => m < 1000 ? `${Math.round(m / 5) * 5 || 5} m` : `${km(m / 1000)} km`;
+let ar = null;
+
+// lon/lat → local x, z: least squares on the buildings within ~1.5 km of the fix
+function fitAt(lat, lon) {
+  const R = 0.014, near = [];
+  let best = Infinity;
+  for (let i = 0; i < N; i++) {
+    if (!B.ok[i]) continue;
+    const o = i * S, dl = dv.getFloat32(o + F.lat, true) - lat, dn = dv.getFloat32(o + F.lon, true) - lon;
+    if (Math.abs(dl) < R && Math.abs(dn) < R * 1.3) near.push(i);
+    else if (near.length < 20) best = Math.min(best, dl * dl + (dn * 0.77) ** 2);
+  }
+  if (near.length < 20) return { far: Math.sqrt(best) * 111 };
+  const step = Math.max(1, Math.floor(near.length / 3000));
+  // normal equations for x (and z) = a·u + b·v + c, with u, v the offsets in thousandths of a degree
+  const m = new Float64Array(6), rx = new Float64Array(3), rz = new Float64Array(3);
+  for (let k = 0; k < near.length; k += step) {
+    const o = near[k] * S, u = (dv.getFloat32(o + F.lon, true) - lon) * 1e3, v = (dv.getFloat32(o + F.lat, true) - lat) * 1e3;
+    const x = dv.getFloat32(o + F.x, true), z = dv.getFloat32(o + F.z, true);
+    m[0] += u * u; m[1] += u * v; m[2] += u; m[3] += v * v; m[4] += v; m[5] += 1;
+    rx[0] += u * x; rx[1] += v * x; rx[2] += x; rz[0] += u * z; rz[1] += v * z; rz[2] += z;
+  }
+  const [a, b, c, d, e, f] = m, det3 = (p, q, r, s, t, w, x, y, z) => p * (t * z - w * y) - q * (s * z - w * x) + r * (s * y - t * x);
+  const D = det3(a, b, c, b, d, e, c, e, f);
+  const solve = r => [det3(r[0], b, c, r[1], d, e, r[2], e, f) / D, det3(a, r[0], c, b, r[1], e, c, r[2], f) / D, det3(a, b, r[0], b, d, r[1], c, e, r[2]) / D];
+  const X = solve(rx), Z = solve(rz);
+  return { lat, lon, at: (la, lo) => { const u = (lo - lon) * 1e3, v = (la - lat) * 1e3; return [X[0] * u + X[1] * v + X[2], Z[0] * u + Z[1] * v + Z[2]]; } };
+}
+
+// what can be named: the must-sees (from far), the heritage records (from near)
+function arPlaces() {
+  const out = SEE.map((d, k) => ({ key: `s${k}`, n: d.n, g: d.g, spot: d.g < 0 ? d : null, top: d.top, far: 1600, rank: k }));
+  for (const k of Object.keys(heritage)) {
+    const i = +k;
+    if (!okRow(i) || SEE_BY_G.has(i) || !heritage[i].n) continue;
+    const b = building(i);
+    out.push({ key: `h${i}`, n: cap(heritage[i].n), g: i, spot: null, top: new THREE.Vector3(b.x, b.base + b.h + 2, b.z), far: 450, rank: 1000 });
+  }
+  for (const p of out) {
+    if (p.g < 0) continue;
+    const b = building(p.g);
+    p.mid = new THREE.Vector3(b.x, b.base + Math.min(b.h * 0.5, 12), b.z);
+  }
+  return out;
+}
+
+function onOrient(e) {
+  if (!ar || e.alpha == null) return;
+  let alpha = e.alpha;
+  if (e.webkitCompassHeading != null && e.webkitCompassHeading >= 0) {
+    // iOS: alpha starts wherever the phone was; the compass heading says where the north is
+    const off = ((360 - e.webkitCompassHeading - e.alpha) % 360 + 540) % 360 - 180;
+    ar.north = ar.north == null ? off : ar.north + ((off - ar.north + 540) % 360 - 180) * 0.05;
+    alpha += ar.north; ar.abs = true;
+  } else if (e.absolute || e.type === 'deviceorientationabsolute') ar.abs = true;
+  const first = !ar.raw;
+  ar.raw = [alpha, e.beta, e.gamma];
+  if (first) arStatusText();
+}
+function onFix(p) {
+  if (!ar) return;
+  const { latitude: lat, longitude: lon, accuracy } = p.coords;
+  if (!ar.fit?.at || Math.abs(lat - ar.fit.lat) > 0.005 || Math.abs(lon - ar.fit.lon) > 0.006) ar.fit = fitAt(lat, lon);
+  if (!ar.fit.at) {
+    arStatus.innerHTML = `Estás a ${km(ar.fit.far)} km de lo cargado. <button data-demo>Simularlo aquí</button>`;
+    return;
+  }
+  const [x, z] = ar.fit.at(lat, lon);
+  ar.fix = new THREE.Vector3(x, eyeAt(x, z), z);
+  if (!ar.pos || ar.demo) { ar.demo = false; ar.pos = ar.fix.clone(); }
+  ar.acc = accuracy;
+  arStatusText();
+}
+function onFixError(err) {
+  if (!ar) return;
+  arStatus.innerHTML = `${err.code === 1 ? 'Sin permiso de ubicación' : 'Sin señal GPS'}. <button data-demo>Simularlo aquí</button>`;
+}
+function arStatusText() {
+  if (ar.demo) { arStatus.textContent = 'Simulado: arrastra para mirar alrededor'; return; }
+  const gps = ar.acc ? `GPS ±${Math.round(ar.acc)} m` : 'Buscando tu posición…';
+  arStatus.textContent = `${gps} · ${ar.abs ? 'brújula' : ar.raw ? 'sin brújula: desliza para orientar' : 'sin sensores'}`;
+}
+// demo: stand where the map was looking if it was close, or else in sight of the first must-see; facing it
+function arDemo() {
+  ar.demo = true;
+  const t = controls.target, close = ar.back.position.distanceTo(t) < 2500;
+  let x = t.x, z = t.z, face = new THREE.Vector3().subVectors(t, ar.back.position);
+  if (!close && SEE.length) {
+    // of the points 60–110 m around it, the one farthest from any building's centre: a square or a street
+    const c = SEE[0], near = [];
+    for (let i = 0; i < N; i++) if (B.ok[i]) {
+      const o = i * S, bx = dv.getFloat32(o + F.x, true), bz = dv.getFloat32(o + F.z, true);
+      if (Math.abs(bx - c.x) < 160 && Math.abs(bz - c.z) < 160) near.push(bx, bz);
+    }
+    let best = -1;
+    for (let k = 0; k < 24; k++) for (const r of [60, 85, 110]) {
+      const px = c.x + r * Math.sin(k * Math.PI / 12), pz = c.z + r * Math.cos(k * Math.PI / 12);
+      let m = Infinity;
+      for (let j = 0; j < near.length; j += 2) m = Math.min(m, (near[j] - px) ** 2 + (near[j + 1] - pz) ** 2);
+      if (m > best) { best = m; x = px; z = pz; }
+    }
+    face = new THREE.Vector3(c.x - x, 0, c.z - z);
+  }
+  ar.pos = new THREE.Vector3(x, eyeAt(x, z), z);
+  ar.yaw = Math.atan2(-face.x, -face.z); ar.pitch = 0.12;
+  arStatusText();
+}
+
+function arFov() {
+  const vw = arVideo.videoWidth, vh = arVideo.videoHeight, W = innerWidth, H = innerHeight;
+  // focal length in screen pixels: the video fills the screen (object-fit: cover)
+  const f = vw && vh ? Math.max(vw, vh) / 2 / Math.tan(d2r(LONG_FOV / 2)) * Math.max(W / vw, H / vh)
+    : Math.max(W, H) / 2 / Math.tan(d2r(LONG_FOV / 2));
+  camera.fov = 2 * r2d(Math.atan(H / 2 / f));
+  camera.updateProjectionMatrix();
+}
+function setGhost(on) {
+  ar.ghost = on;
+  arGhostBtn.setAttribute('aria-pressed', String(on));
+  canvas.style.opacity = on ? (ar.stream ? '0.5' : '1') : '';
+  canvas.style.visibility = on ? '' : 'hidden';
+}
+
+async function enterAR(demo = false) {
+  if (ar) return;
+  arStart.hidden = true;
+  ar = { back: { target: controls.target.clone(), position: camera.position.clone() }, offset: 0, yaw: 0, pitch: 0,
+    q: camera.quaternion.clone(), seen: new Map(), places: arPlaces(), tags: new Map(), look: -1, lookAt: 0, arrived: -1 };
+  // iOS asks for the compass inside the tap, before anything else waits
+  try { if (DeviceOrientationEvent.requestPermission) await DeviceOrientationEvent.requestPermission(); } catch (e) { /* refused */ }
+  setOrbit(false); flight = null; turn = null; stopPlay();
+  pinCard(-1); openRoutes(false); if (seeOn) setSee(false);
+  if (state.year < yMax) setYear(yMax);
+  document.body.classList.add('ar-on');
+  arBox.hidden = false;
+  controls.enabled = false;
+  camera.near = 0.5; flat.visible = false;
+  uniforms.uFog.value.set(700, 2600);
+  ar.ev = 'ondeviceorientationabsolute' in window ? 'deviceorientationabsolute' : 'deviceorientation';
+  addEventListener(ar.ev, onOrient);
+  if (!demo) {
+    try {
+      ar.stream = await navigator.mediaDevices.getUserMedia({ audio: false,
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } } });
+      if (!ar) { ar?.stream?.getTracks().forEach(t => t.stop()); return; }
+      arVideo.srcObject = ar.stream;
+      arVideo.hidden = false;
+      await arVideo.play().catch(() => {});
+    } catch (e) { say('Sin cámara: se ven los edificios en su lugar'); }
+    if (!ar) return;
+    ar.watch = navigator.geolocation?.watchPosition(onFix, onFixError, { enableHighAccuracy: true, maximumAge: 3000, timeout: 30000 });
+  }
+  // the screen stays on while looking around
+  try { ar.wake = await navigator.wakeLock?.request('screen'); } catch (e) { /* not offered */ }
+  if (!ar) { ar?.wake?.release(); return; }
+  setGhost(!ar.stream);
+  flat.visible = !ar.stream; // no camera: the ground under the buildings
+  if (demo || !navigator.geolocation) arDemo(); else arStatusText();
+  arFov();
+  arHint.hidden = false;
+  setTimeout(() => { arHint.hidden = true; }, 7000);
+}
+function exitAR() {
+  if (!ar) return;
+  removeEventListener(ar.ev, onOrient);
+  ar.stream?.getTracks().forEach(t => t.stop());
+  ar.wake?.release().catch(() => {});
+  if (ar.watch != null) navigator.geolocation.clearWatch(ar.watch);
+  arVideo.srcObject = null; arVideo.hidden = true;
+  arTags.replaceChildren();
+  const back = ar.back;
+  ar = null;
+  document.body.classList.remove('ar-on');
+  arBox.hidden = true; arArrow.hidden = true; arLook.hidden = true;
+  canvas.style.opacity = ''; canvas.style.visibility = '';
+  camera.near = 10; camera.fov = 35; flat.visible = true; controls.enabled = true;
+  uniforms.uHover.value = -1;
+  pinCard(-1);
+  resize();
+  jump(back);
+}
+arBtn.onclick = () => enterAR();
+arStart.onclick = () => enterAR();
+document.getElementById('ar-close').onclick = exitAR;
+arGhostBtn.onclick = () => setGhost(!ar.ghost);
+arLook.onclick = () => { if (ar?.look >= 0) pinCard(ar.look, innerWidth / 2, innerHeight / 2); };
+document.getElementById('ar-routes').onclick = () => openRoutes(routesBox.hidden);
+arStatus.addEventListener('click', e => { if (e.target.closest('[data-demo]')) arDemo(); });
+arVideo.addEventListener('loadedmetadata', () => ar && arFov());
+addEventListener('resize', () => ar && arFov());
+
+// drag sideways: turn the compass by hand (or look around, simulated); a tap: that building's card
+let arDown = null;
+arBox.addEventListener('pointerdown', e => {
+  if (e.target.closest('button, a, .card')) return;
+  arDown = { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, moved: false };
+});
+arBox.addEventListener('pointermove', e => {
+  if (!arDown || !ar) return;
+  const dx = e.clientX - arDown.x, dy = e.clientY - arDown.y, deg = camera.fov * camera.aspect / innerWidth;
+  if (Math.hypot(e.clientX - arDown.x0, e.clientY - arDown.y0) > 6) arDown.moved = true;
+  arDown.x = e.clientX; arDown.y = e.clientY;
+  if (!arDown.moved) return;
+  if (ar.raw && !ar.demo) ar.offset += dx * deg;
+  else { ar.yaw += d2r(dx * deg); ar.pitch = Math.max(-1.2, Math.min(1.2, ar.pitch + d2r(dy * deg))); }
+});
+arBox.addEventListener('pointerup', e => {
+  const d = arDown;
+  arDown = null;
+  if (!d || d.moved || !ar) return;
+  const i = pick(e.clientX, e.clientY);
+  if (i >= 0 && B.ok[i]) pinCard(i, e.clientX, e.clientY);
+});
+
+// the walk's stop to head for: the nearest on starting, then the next once reached
+function nearestStop(r) {
+  if (!ar?.pos) return 0;
+  let best = 0, bd = Infinity;
+  r.stops.forEach((s, k) => { const d = Math.hypot(s.x - ar.pos.x, s.z - ar.pos.z); if (d < bd) { bd = d; best = k; } });
+  return best;
+}
+
+const QT = new THREE.Quaternion(), Q1 = new THREE.Quaternion(-Math.SQRT1_2, 0, 0, Math.SQRT1_2), QZ = new THREE.Quaternion();
+const EUL = new THREE.Euler(), ZEE = new THREE.Vector3(0, 0, 1), V = new THREE.Vector3();
+function arFrame(now) {
+  // pose: the fix eased in, the phone's orientation (and the hand's correction) eased in
+  if (ar.fix && !ar.demo) ar.pos.lerp(ar.fix, 0.06);
+  if (ar.pos) camera.position.copy(ar.pos);
+  if (ar.raw && !ar.demo) {
+    const [a, b, g] = ar.raw, rot = d2r(screen.orientation?.angle ?? window.orientation ?? 0);
+    EUL.set(d2r(b), d2r(a + ar.offset), -d2r(g), 'YXZ');
+    QT.setFromEuler(EUL).multiply(Q1).multiply(QZ.setFromAxisAngle(ZEE, -rot));
+  } else QT.setFromEuler(EUL.set(ar.pitch, ar.yaw, 0, 'YXZ'));
+  ar.q.slerp(QT, ar.raw && !ar.demo ? 0.25 : 1);
+  camera.quaternion.copy(ar.q);
+  camera.updateMatrixWorld();
+  if (!ar.pos) { renderer.clear(); return; }
+  if (ar.ghost) renderer.render(scene, camera);
+
+  // what is in front: the building under the reticle, three times a second
+  if (now - ar.lookAt > 330 && pinned === -1) {
+    ar.lookAt = now;
+    let i = pick(innerWidth / 2, innerHeight / 2);
+    if (i >= 0 && !B.ok[i]) i = -1;
+    if (i !== ar.look) {
+      ar.look = i; uniforms.uHover.value = i;
+      arLook.hidden = i < 0;
+      if (i >= 0) {
+        const b = building(i), name = SEE_BY_G.get(i)?.n || cap(heritage[i]?.n) || uses[b.use]?.label;
+        const year = b.flag && b.flag !== 3 ? `c. ${b.year}` : b.year;
+        arLook.innerHTML = `<span class="k">Estás mirando</span><b>${esc(name)}</b>
+          <span class="m">${year} · ${esc(periodOf(b.period).label)} · ${b.floors} ${b.floors === 1 ? 'planta' : 'plantas'} · a ${metres(Math.hypot(b.x - ar.pos.x, b.z - ar.pos.z))}</span>`;
+      }
+    }
+  }
+
+  // names: the walk's next stop, then the must-sees by relevance, then heritage by distance; none over another
+  const W = innerWidth, H = innerHeight, placed = [], want = new Set();
+  const top = arBox.querySelector('.ar-top').getBoundingClientRect(), low = Math.min(arLook.hidden ? H : arLook.getBoundingClientRect().top, H - 70);
+  const list = [];
+  const next = walk ? walk.stops[Math.max(0, walk.k)] : null;
+  for (const p of ar.places) {
+    const d = Math.hypot(p.top.x - ar.pos.x, p.top.z - ar.pos.z);
+    if (d < p.far && d > 8 && (!next || p.g !== next.g || p.g < 0)) list.push([p.rank + d / 100, p, d]);
+  }
+  list.sort((a, b) => a[0] - b[0]);
+  if (next) list.unshift([0, { key: 'next', n: next.n, g: next.g, spot: next.g < 0 ? next : null, top: next.top, mid: next.top, stop: true }, Math.hypot(next.x - ar.pos.x, next.z - ar.pos.z)]);
+  let checked = 0;
+  for (const [, p, d] of list) {
+    if (want.size >= 12) break;
+    V.copy(p.top).applyMatrix4(camera.matrixWorldInverse);
+    if (V.z > -1) continue;
+    V.applyMatrix4(camera.projectionMatrix);
+    const x = (V.x + 1) / 2 * W, y = (1 - V.y) / 2 * H;
+    if (x < -40 || x > W + 40 || y > H) continue;
+    // in sight or behind something: the reticle's pick at the building's middle, a few per frame, each kept a while
+    let seen = ar.seen.get(p.key);
+    if (p.g >= 0 && p.mid && (!seen || now - seen.t > 600) && checked < 2) {
+      checked++;
+      V.copy(p.mid).applyMatrix4(camera.matrixWorldInverse).applyMatrix4(camera.projectionMatrix);
+      const mx = (V.x + 1) / 2 * W, my = (1 - V.y) / 2 * H;
+      const vis = mx < 0 || mx >= W || my < 0 || my >= H ? true : pick(mx, my) === p.g;
+      ar.seen.set(p.key, seen = { vis, t: now });
+    }
+    const hidden = p.g >= 0 && seen && !seen.vis;
+    let t = ar.tags.get(p.key);
+    if (!t) {
+      const el = document.createElement('button');
+      el.className = 'ar-tag';
+      el.onclick = () => pinCard(p.g, W / 2, H / 2, p.spot);
+      arTags.append(el);
+      t = { el, w: 0, h: 0, txt: '' };
+      ar.tags.set(p.key, t);
+    }
+    const txt = `<b>${esc(p.n)}</b><span>${metres(d)}${hidden ? ' · detrás' : ''}</span>`;
+    if (txt !== t.txt) { t.el.innerHTML = txt; t.txt = txt; t.w = t.el.offsetWidth; t.h = t.el.offsetHeight; }
+    t.el.classList.toggle('behind', !!hidden);
+    t.el.classList.toggle('stop', !!p.stop);
+    const bx = Math.max(6, Math.min(W - t.w - 6, x - t.w / 2)), by = Math.max(top.bottom + 6, Math.min(low - t.h - 6, y - t.h - 14));
+    if (!p.stop && placed.some(r => bx < r[0] + r[2] + 4 && bx + t.w + 4 > r[0] && by < r[1] + r[3] + 4 && by + t.h + 4 > r[1])) continue;
+    placed.push([bx, by, t.w, t.h]);
+    t.el.style.transform = `translate(${bx.toFixed(1)}px,${by.toFixed(1)}px)`;
+    want.add(p.key);
+  }
+  for (const [k, t] of ar.tags) if (!want.has(k) !== t.el.hidden) t.el.hidden = !want.has(k);
+
+  // the walk: an arrow at the edge while the stop is out of the picture; the card when it is reached
+  arArrow.hidden = true;
+  if (next) {
+    const d = Math.hypot(next.x - ar.pos.x, next.z - ar.pos.z);
+    V.copy(next.top).applyMatrix4(camera.matrixWorldInverse);
+    const a = Math.atan2(V.x, -V.z), half = d2r(camera.fov * camera.aspect / 2);
+    if (Math.abs(a) > half * 0.92) {
+      arArrow.hidden = false;
+      arArrow.className = `ar-arrow ${a < 0 ? 'left' : 'right'}`;
+      arArrow.innerHTML = `<b>${a < 0 ? '←' : '→'}</b><span>${esc(next.n)}<br>${metres(d)}</span>`;
+    }
+    if (d < 25 && ar.arrived !== walk.k) {
+      ar.arrived = walk.k;
+      say(`Has llegado: ${next.n}`);
+      navigator.vibrate?.(120);
+      pinCard(next.g, W / 2, H / 2, next.g < 0 ? next : null);
+    }
+  }
+}
+if (AR_HASH === 'demo') setTimeout(() => enterAR(true), 800);
+else if (AR_HASH && CAN_AR) arStart.hidden = false;
 
 // ---------- Loop ----------
 function resize() {
@@ -1239,6 +1595,7 @@ setTheme(theme);
 let lastPick = 0;
 renderer.setAnimationLoop(now => {
   uniforms.uNow.value = now / 1000;
+  if (ar) { arFrame(now); return; }
   stepPlay(now);
   stepFlight(now);
   stepTurn(now);

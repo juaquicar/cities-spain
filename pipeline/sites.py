@@ -250,7 +250,7 @@ def portal(deploy=False):
                 if not polys:
                     return None
                 g = max(polys, key=lambda g: g.area).representative_point()
-                return spain_map.project(*back.transform(g.x + e0, n0 - g.y))
+                return back.transform(g.x + e0, n0 - g.y)
         munis = []
         for m in c["municipios"]:
             simple = []
@@ -263,13 +263,15 @@ def portal(deploy=False):
                         simple.append([[v for xy in part.exterior.coords for v in xy]])
             munis.append(dict(
                 code=m["code"], name=m["name"], n=m["n"], id=m["id"],
-                pt=centre(m["id"]) if reg and len(c["municipios"]) > 1 else None,
+                **(dict(pt=spain_map.project(*ll), ll=[round(ll[0], 5), round(ll[1], 5)])
+                   if reg and len(c["municipios"]) > 1 and (ll := centre(m["id"])) else {}),
                 packs=sorted({t["pack"] for t in c["tiles"] if t.get("muni", m["id"]) == m["id"]}),
                 parts=[p["file"] for p in parts if not p.get("munis") or m["id"] in p["munis"]],
                 d=outline(simple, scale, x0, z0)))
         # its dot on the map of Spain, at the region's landmark
         pt = spain_map.project(*REGIONS[key].landmark) if key in REGIONS else None
-        cities.append(dict(key=key, name=name, sub=f"{kind} · {ccaa}", ccaa=ccaa, tags=tags, buildings=c["stats"]["buildings"], pt=pt,
+        ll = list(REGIONS[key].landmark) if key in REGIONS else None
+        cities.append(dict(key=key, name=name, sub=f"{kind} · {ccaa}", ccaa=ccaa, tags=tags, buildings=c["stats"]["buildings"], pt=pt, ll=ll,
                            monuments=c["stats"].get("monuments", 0), heritage=c.get("heritage", "iaph"),
                            years=[c["yearMin"], c["yearMax"]], base=base, files=files,
                            view=[round((x1 - x0) * scale), round((z1 - z0) * scale)],

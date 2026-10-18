@@ -251,6 +251,34 @@ if (spain && cities.some(c => c.pt)) {
   document.fonts?.ready.then(() => { measure(); apply(); });
 }
 
+// ---------- Cerca de mí: the city around you, opened with the camera ready (the viewer's "Ver con la cámara") ----------
+// The municipalities within 6 km of the nearest centre load (a big one's centre can be far from its edge); 25 km at most.
+const near = $('near'), nearMsg = $('near-msg');
+near.hidden = !navigator.geolocation || !matchMedia('(pointer: coarse)').matches;
+const kmTo = (a, b) => Math.hypot((a[0] - b[0]) * 111.3 * Math.cos(b[1] * Math.PI / 180), (a[1] - b[1]) * 111.3);
+near.onclick = () => {
+  nearMsg.hidden = false; nearMsg.textContent = 'Buscando dónde estás…';
+  navigator.geolocation.getCurrentPosition(pos => {
+    const me = [pos.coords.longitude, pos.coords.latitude], spots = [];
+    for (const c of cities) {
+      if (c.municipios.length > 1) { for (const m of c.municipios) if (m.ll) spots.push({ c, m, d: kmTo(m.ll, me) }); }
+      else if (c.ll) spots.push({ c, d: kmTo(c.ll, me) });
+    }
+    spots.sort((a, b) => a.d - b.d);
+    const best = spots[0];
+    if (!best || best.d > 25) {
+      nearMsg.textContent = best ? `No hay ninguna ciudad a mano: la más cercana es ${best.c.name}, a ${Math.round(best.d)} km.` : 'Sin ciudades.';
+      return;
+    }
+    nearMsg.textContent = `Abriendo ${best.m ? best.m.name : best.c.name}…`;
+    if (!best.m) { location.href = `${best.c.key}/#ar=1`; return; }
+    const codes = spots.filter(s => s.c === best.c && s.m && s.d < best.d + 6).slice(0, 4).map(s => s.m.code);
+    location.href = `${best.c.key}/#cargar=${codes.join(',')}&ar=1`;
+  }, err => {
+    nearMsg.textContent = err.code === 1 ? 'Hace falta permiso de ubicación.' : 'No se pudo saber dónde estás.';
+  }, { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 });
+};
+
 // ---------- Search: cities and municipalities ----------
 const q = $('q'), hits = $('hits');
 q.oninput = () => {

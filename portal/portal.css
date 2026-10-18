@@ -182,3 +182,9 @@ main { max-width: 1180px; margin: 0 auto; padding: 26px var(--gutter) 40px; }
   .chips { flex-wrap: nowrap; overflow-x: auto; margin-right: calc(-1 * var(--gutter)); padding-right: var(--gutter); scrollbar-width: none; }
   .chips button { flex: none; }
 }
+
+.near { display: block; margin-top: 12px; max-width: 520px; width: 100%; padding: 12px 16px; border-radius: 14px; text-align: left;
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent); background: color-mix(in srgb, var(--accent) 14%, var(--card));
+  color: var(--ink); font: inherit; font-size: 14px; cursor: pointer; }
+.near b { color: var(--accent); }
+.near-msg { margin: 8px 0 0; font-size: 13px; }
