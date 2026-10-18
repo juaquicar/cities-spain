@@ -683,7 +683,9 @@ function cardHtml(i, pinned) {
       ${h?.wp ? `<a href="${esc(h.wp)}" target="_blank" rel="noopener">Wikipedia</a>` : ''}
     </p>${h?.img ? '<p class="credit">Foto: Wikimedia Commons</p>' : ''}` : ''}`;
 }
-const photo = file => file ? `<img class="photo" alt="" loading="lazy" src="https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(file)}?width=560">` : '';
+// Commons file names come plain from monumentos.json and sometimes already escaped from turismo.json
+const unescape = f => { try { return decodeURIComponent(f); } catch (e) { return f; } };
+const photo = file => file ? `<img class="photo" alt="" loading="lazy" src="https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(unescape(file))}?width=560">` : '';
 // a square, a park, a bridge or a gate: no building under it, so only its name, picture and article
 function spotHtml(p) {
   const stop = walk ? walk.stops.indexOf(p) : -1, ll = latlon(p);
@@ -789,7 +791,10 @@ find.addEventListener('keydown', e => {
 // building (g, its row) or a place with no building (x, z, y, lat, lon and m, its municipality: a square, a park).
 // Only what is loaded counts; a route left with fewer than 3 stops is dropped.
 const okRow = g => Number.isInteger(g) && g >= 0 && g < N && B.ok[g] === 1;
+// Wikidata labels and descriptions in Spanish start in lower case ("plaza de España")
+const cap = t => t ? t.charAt(0).toUpperCase() + t.slice(1) : t;
 function spotOf(e) {
+  e = { ...e, n: cap(e.n), d: cap(e.d) };
   if (e.g != null) {
     if (!okRow(e.g)) return null;
     const b = building(e.g);
@@ -837,6 +842,7 @@ function frame(pts, min = 1200) {
 }
 seeBtn.onclick = () => setSee(!seeOn);
 const tags = new Map(); // key → { el, w, h, shown }
+const chrome = ['.masthead', '.tally', '.tools', '.find', '.dock', '#panel', '#routes', '#card'].map(q => document.querySelector(q));
 function makeTag(key, html, cls, onclick, g = -1) {
   let t = tags.get(key);
   if (!t) {
@@ -883,6 +889,11 @@ function drawOverlay() {
       place(t, p[0] - t.w / 2, p[1] - t.h / 2);
     });
   } else if (seeOn) {
+    // names keep clear of the panels over the map
+    for (const el of chrome) {
+      const r = el.getBoundingClientRect();
+      if (r.width && r.height) placed.push([r.left, r.top, r.width, r.height]);
+    }
     const max = narrow.matches ? 9 : 14, far = uniforms.uFog.value.y * 0.7;
     let n = 0;
     for (const [k, d] of SEE.entries()) {
