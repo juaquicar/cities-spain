@@ -23,7 +23,15 @@ const OLD = 1800; // years before this share a compressed strip at the left of t
 // their parts of the table. Without it, everything.
 const config = await fetch('data/city.json').then(r => r.json());
 const REF_LEN = config.refLen || 14; // 17 in Bizkaia's foral cadastre
-const FORAL = config.cadastre === 'bizkaia';
+// the foral cadastres of the Basque Country keep their own references, viewers and credits
+const FORAL = {
+  bizkaia: { name: 'Catastro de Bizkaia', home: 'https://geo.bizkaia.eus/',
+    credit: 'Catastro foral de Bizkaia, © Bizkaiko Foru Aldundia (INSPIRE Buildings).' },
+  // ref = 7-digit parcel, a dash and the building's number; the viewer opens on the parcel
+  gipuzkoa: { name: 'Catastro de Gipuzkoa', home: 'https://b5m.gipuzkoa.eus/',
+    credit: 'Catastro foral de Gipuzkoa, CC BY-SA © Gipuzkoako Foru Aldundia (INSPIRE Buildings).',
+    link: ref => `https://ssl6.gipuzkoa.net/Catastro/map.htm?id=69&RefCat=${encodeURIComponent(ref.split('-')[0])}&idioma=spa` },
+}[config.cadastre] || null;
 const want = (new URLSearchParams(location.hash.slice(1)).get('cargar') || '').split(',').filter(Boolean);
 const chosen = config.municipios.filter(m => want.includes(m.code));
 const PARTIAL = chosen.length > 0 && chosen.length < config.municipios.length;
@@ -646,7 +654,7 @@ const about = document.getElementById('about');
 document.querySelector('.about-open').onclick = () => about.showModal();
 about.querySelector('.about-close').onclick = () => about.close();
 if (FORAL) document.getElementById('src-cadastre').textContent = 'Edificios, partes, plantas, año, uso y viviendas: '
-  + 'Catastro foral de Bizkaia, © Bizkaiko Foru Aldundia (INSPIRE Buildings).';
+  + FORAL.credit;
 
 // ---------- Fly ----------
 let flight = null;
@@ -697,7 +705,7 @@ function cardHtml(i, pinned) {
     <p class="era"><i style="background:${p.color}"></i>${p.label}${['', ' · año redondeado', ' · año estimado', ` · fecha ${HSRC}`, ` · periodo ${HSRC}`][b.flag] || ''}</p>
     <dl>${rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
     ${pinned ? `<p class="links">
-      ${FORAL ? '<a href="https://geo.bizkaia.eus/" target="_blank" rel="noopener">Catastro de Bizkaia</a>'
+      ${FORAL ? `<a href="${FORAL.link ? FORAL.link(b.ref) : FORAL.home}" target="_blank" rel="noopener">${FORAL.name}</a>`
         : `<a href="https://www1.sedecatastro.gob.es/Cartografia/mapa.aspx?refcat=${encodeURIComponent(b.ref)}" target="_blank" rel="noopener">Catastro</a>`}
       <a href="https://www.google.com/maps/dir/?api=1&travelmode=walking&destination=${ll}" target="_blank" rel="noopener">Cómo llegar</a>
       <a href="https://www.google.com/maps/search/?api=1&query=${ll}" target="_blank" rel="noopener">Mapa</a>
@@ -799,7 +807,14 @@ let refIndex = null;
 find.addEventListener('keydown', e => {
   if (e.key !== 'Enter') return;
   const q = find.value.trim().toUpperCase().replace(/\s+/g, '').slice(0, REF_LEN);
-  if (!refIndex) { refIndex = new Map(); for (let i = 0; i < N; i++) if (B.ok[i]) refIndex.set(building(i).ref, i); }
+  if (!refIndex) {  // Gipuzkoa: the parcel alone finds its first building too
+    refIndex = new Map();
+    for (let i = 0; i < N; i++) if (B.ok[i]) {
+      const r = building(i).ref;
+      refIndex.set(r, i);
+      if (r.includes('-') && !refIndex.has(r.split('-')[0])) refIndex.set(r.split('-')[0], i);
+    }
+  }
   const i = refIndex.get(q);
   find.classList.toggle('bad', i === undefined);
   if (i === undefined) return;
@@ -1093,7 +1108,7 @@ document.getElementById('t-shot').onclick = () => {
   x.font = `700 ${Math.round(30 * s)}px Fraunces, Georgia, serif`; x.fillStyle = css.getPropertyValue('--ink');
   x.fillText(LABEL, 24 * s, 48 * s);
   x.font = `600 ${Math.round(13 * s)}px Manrope, sans-serif`; x.fillStyle = css.getPropertyValue('--accent');
-  x.fillText(`${state.year >= yMax ? 'Hoy' : state.year} · spain-cities.quijada.uk · Juanma Quijada · ${FORAL ? 'Catastro de Bizkaia' : 'Catastro'}, IGN, OSM`, 24 * s, 72 * s);
+  x.fillText(`${state.year >= yMax ? 'Hoy' : state.year} · spain-cities.quijada.uk · Juanma Quijada · ${FORAL ? FORAL.name : 'Catastro'}, IGN, OSM`, 24 * s, 72 * s);
   out.toBlob(blob => {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
