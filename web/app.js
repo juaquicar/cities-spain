@@ -489,6 +489,10 @@ const MILESTONES = {
     [2008, 'Fin de la burbuja']],
   barcelona: [[1859, 'Plan Cerdà'], [1888, 'Exposición Universal'], [1929, 'Exposición Internacional'],
     [1992, 'Juegos Olímpicos'], [2008, 'Fin de la burbuja']],
+  valencia: [[1865, 'Derribo de la muralla'], [1909, 'Exposición Regional'], [1957, 'Riada'],
+    [1998, 'Ciudad de las Ciencias']],
+  salamanca: [[1729, 'Plaza Mayor'], [1988, 'Patrimonio de la Humanidad']],
+  zaragoza: [[1808, 'Los Sitios'], [1908, 'Exposición Hispano-Francesa'], [2008, 'Expo 2008']],
 }[config.city] || [];
 const hist = document.getElementById('hist'), hctx = hist.getContext('2d');
 const yMin = config.yearMin < OLD ? config.yearMin : Math.floor(config.yearMin / 10) * 10, yMax = config.yearMax;
