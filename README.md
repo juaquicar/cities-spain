@@ -81,8 +81,8 @@ monumento con artículo, la ficha añade dos o tres frases del resumen de Wikipe
 En el móvil, «Ver con la cámara» pone la cámara de fondo y encima la ciudad vista desde donde estás: el GPS da la
 posición (pasada al marco local con un ajuste por mínimos cuadrados sobre los edificios cercanos, que llevan lon/lat y
 x/z), la brújula y el giroscopio la orientación (`deviceorientationabsolute` en Android, `webkitCompassHeading` en iOS) y
-el ojo va a 1,6 m sobre la mediana de las cotas de los edificios de alrededor. Sobre la cámara va un punto por edificio (hasta 320 m, del color de su época,
-más grande cuanto más cerca); «3D» dibuja además los edificios, transparentes. La escena sirve para saber qué edificio hay bajo la retícula («Estás mirando»: nombre, año, época,
+el ojo va a 1,6 m sobre la mediana de las cotas de los edificios de alrededor. Sobre la cámara va un punto por cada edificio a 20 m o menos (del color de su época);
+«3D» dibuja además esos edificios, transparentes. La escena sirve para saber qué edificio hay bajo la retícula («Estás mirando»: nombre, año, época,
 plantas, distancia) y si cada monumento con nombre está a la vista o detrás de algo. En una ruta empieza por la parada
 más cercana, una flecha en el borde señala la siguiente y al llegar (25 m) abre su ficha. Deslizar a los lados corrige la
 brújula; tocar un edificio abre su ficha. `#ar=demo` simula estar junto al primer imprescindible, sin cámara ni sensores.

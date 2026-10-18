@@ -249,6 +249,7 @@ const uniforms = {
   uFogColor: { value: col(SKY) },
   uFog: { value: new THREE.Vector2(9000 * FOG, 26000 * FOG) },
   uAlpha: { value: 1 }, // below 1 only over the camera (see-through 3D)
+  uClip: { value: 0 },  // over the camera: nothing farther than this from the eye (0: everything)
 };
 
 const VERT = /* glsl */`
@@ -323,7 +324,7 @@ const FRAG = /* glsl */`
   precision highp float;
   uniform vec3 uFogColor;
   uniform vec2 uFog;
-  uniform float uAlpha;
+  uniform float uAlpha, uClip;
   in vec3 vColor;
   in vec3 vWorld;
   in float vGid;
@@ -334,6 +335,7 @@ const FRAG = /* glsl */`
       float id = vGid + 1.0;
       outColor = vec4(mod(id, 256.0), mod(floor(id / 256.0), 256.0), floor(id / 65536.0), 255.0) / 255.0;
     #else
+      if (uClip > 0.0 && length(vWorld.xz - cameraPosition.xz) > uClip) discard;
       vec3 n = normalize(cross(dFdx(vWorld), dFdy(vWorld)));
       // Andalusian afternoon: a high sun from the south-west, a soft sky from above.
       float sun = max(dot(n, normalize(vec3(-0.5, 0.75, 0.55))), 0.0);
@@ -1199,7 +1201,7 @@ const AR_HASH = new URLSearchParams(location.hash.slice(1)).get('ar');
 const CAN_AR = !!navigator.mediaDevices?.getUserMedia && 'DeviceOrientationEvent' in window && matchMedia('(pointer: coarse)').matches;
 arBtn.hidden = !CAN_AR && !AR_HASH;
 const d2r = THREE.MathUtils.degToRad, r2d = THREE.MathUtils.radToDeg;
-const EYE = 1.6, LONG_FOV = 67; // metres; degrees across the long side of a phone's main camera
+const EYE = 1.6, LONG_FOV = 67, NEAR = 20; // NEAR: dots and 3D only for the buildings this close (metres) // metres; degrees across the long side of a phone's main camera
 // eye level: the buildings sit on the lowest ground under them, so stand on the median of the nearby ones' bases
 function eyeAt(x, z) {
   const bases = [];
@@ -1347,6 +1349,7 @@ function setSolid(on) {
   arSolidBtn.setAttribute('aria-pressed', String(on));
   const glass = on && !!ar.stream;
   uniforms.uAlpha.value = glass ? 0.45 : 1;
+  uniforms.uClip.value = glass ? NEAR + 15 : 0;
   for (const m of meshes) {
     m.visible = on;
     if (m.userData.draw.transparent !== glass) { m.userData.draw.transparent = glass; m.userData.draw.needsUpdate = true; }
@@ -1357,7 +1360,7 @@ function setDots(on) {
   arDotsBtn.setAttribute('aria-pressed', String(on));
   arDots.visible = on;
 }
-// the dots: the buildings within 320 m, rebuilt as one walks; nearer is bigger, farther fades
+// the dots: the buildings within NEAR metres of one's position (to the edge of the building, as if round), rebuilt as one walks
 let arDots = null;
 const dotMat = new THREE.ShaderMaterial({
   uniforms: { uPx: { value: 1 }, uHi: { value: -1 } },
@@ -1371,7 +1374,7 @@ const dotMat = new THREE.ShaderMaterial({
       float d = max(-mv.z, 1.0);
       vHi = abs(gid - uHi) < 0.5 ? 1.0 : 0.0;
       vC = color;
-      vA = 1.0 - smoothstep(170.0, 320.0, d);
+      vA = 1.0;
       gl_PointSize = uPx * (clamp(1100.0 / d, 7.0, 26.0) + vHi * 10.0);
       gl_Position = projectionMatrix * mv;
     }`,
@@ -1389,7 +1392,8 @@ function arBuildDots(at) {
   for (let i = 0; i < N; i++) {
     if (!B.ok[i]) continue;
     const o = i * S, x = dv.getFloat32(o + F.x, true), z = dv.getFloat32(o + F.z, true);
-    if ((x - at.x) ** 2 + (z - at.z) ** 2 > 320 * 320) continue;
+    const reach = NEAR + Math.sqrt(dv.getUint32(o + F.area, true) / Math.PI);
+    if ((x - at.x) ** 2 + (z - at.z) ** 2 > reach * reach) continue;
     const h = dv.getUint16(o + F.h, true) / 10;
     pos.push(x, dv.getFloat32(o + F.base, true) + Math.min(Math.max(h * 0.6, 2.5), 14), z);
     const c = cs[B.period[i]] || cs[0];
@@ -1460,7 +1464,7 @@ function exitAR() {
   ar = null;
   document.body.classList.remove('ar-on');
   arBox.hidden = true; arArrow.hidden = true; arLook.hidden = true;
-  uniforms.uAlpha.value = 1;
+  uniforms.uAlpha.value = 1; uniforms.uClip.value = 0;
   for (const m of meshes) {
     m.visible = true;
     if (m.userData.draw.transparent) { m.userData.draw.transparent = false; m.userData.draw.needsUpdate = true; }
@@ -1540,7 +1544,7 @@ function arFrame(now) {
   camera.quaternion.copy(ar.q);
   camera.updateMatrixWorld();
   if (!ar.pos) { renderer.clear(); return; }
-  if (ar.dots && (!ar.dotsAt || ar.dotsAt.distanceTo(ar.pos) > 40)) arBuildDots(ar.pos);
+  if (ar.dots && (!ar.dotsAt || ar.dotsAt.distanceTo(ar.pos) > 3)) arBuildDots(ar.pos);
   renderer.render(scene, camera);
 
   // what is in front: the building under the reticle, three times a second
