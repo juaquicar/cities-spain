@@ -166,8 +166,16 @@ $('none').onclick = () => { chosen = new Set(); render(); };
 $('back').onclick = () => { location.hash = ''; };
 
 // ---------- Route: #<city key> opens its picker ----------
+// a map's "Cambiar municipios" comes back as #<key>&cargar=code,code… (or * for all of them), ticked as it was
 function route() {
-  const c = cities.find(c => c.key === location.hash.slice(1));
+  const [key, rest = ''] = location.hash.slice(1).split('&', 2);
+  const c = cities.find(c => c.key === key);
+  const back = new URLSearchParams(rest).get('cargar');
+  if (c && back) {
+    const codes = back === '*' ? c.municipios.map(m => m.code) : back.split(',').filter(k => c.municipios.some(m => m.code === k));
+    if (codes.length) preselect = new Set(codes);
+    history.replaceState(null, '', `#${c.key}`);
+  }
   if (c && c.municipios.length > 1) openPicker(c); else closePicker();
 }
 addEventListener('hashchange', route);

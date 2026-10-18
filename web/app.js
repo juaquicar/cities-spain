@@ -836,6 +836,17 @@ new ResizeObserver(() => {
 // the way back to the list of cities, when this map is one of the portal's
 const portalLink = document.getElementById('portal-link');
 if (document.body.dataset.portal) { portalLink.href = document.body.dataset.portal; portalLink.textContent = '← Todas las ciudades'; }
+// and back to this city's municipality picker (#<key>&cargar=…), with the current selection already ticked
+if (document.body.dataset.portal) {
+  const change = document.getElementById('change'), key = location.pathname.split('/').filter(Boolean).pop();
+  if (config.municipios.length > 1 && key) {
+    change.href = `${document.body.dataset.portal}#${key}&cargar=${PARTIAL ? chosen.map(m => m.code).join(',') : '*'}`;
+  } else {
+    change.href = document.body.dataset.portal; change.textContent = '← Otras ciudades';
+    portalLink.textContent = 'Ciudades de España'; // the button already says the same
+  }
+  change.hidden = false;
+}
 
 // ---------- Loop ----------
 function resize() {
