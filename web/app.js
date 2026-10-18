@@ -22,6 +22,8 @@ const OLD = 1800; // years before this share a compressed strip at the left of t
 // A selection made before loading (the portal's #cargar=code,code…) fetches only those municipalities: their tiles,
 // their parts of the table. Without it, everything.
 const config = await fetch('data/city.json').then(r => r.json());
+const REF_LEN = config.refLen || 14; // 17 in Bizkaia's foral cadastre
+const FORAL = config.cadastre === 'bizkaia';
 const want = (new URLSearchParams(location.hash.slice(1)).get('cargar') || '').split(',').filter(Boolean);
 const chosen = config.municipios.filter(m => want.includes(m.code));
 const PARTIAL = chosen.length > 0 && chosen.length < config.municipios.length;
@@ -82,7 +84,7 @@ const ascii = new TextDecoder('ascii');
 function building(i) {
   const o = i * S;
   return {
-    i, ref: ascii.decode(new Uint8Array(attrBuf, o + F.ref, 14)).replace(/\0+$/, ''),
+    i, ref: ascii.decode(new Uint8Array(attrBuf, o + F.ref, REF_LEN)).replace(/\0+$/, ''),
     muni: B.muni[i], use: B.use[i], flag: B.flag[i], floors: B.floors[i], below: dv.getUint8(o + F.below),
     period: B.period[i], year: B.year[i], dwell: dv.getUint16(o + F.dwell, true), h: dv.getUint16(o + F.h, true) / 10,
     area: dv.getUint32(o + F.area, true), x: dv.getFloat32(o + F.x, true), z: dv.getFloat32(o + F.z, true),
@@ -493,6 +495,7 @@ const MILESTONES = {
     [1998, 'Ciudad de las Ciencias']],
   salamanca: [[1729, 'Plaza Mayor'], [1988, 'Patrimonio de la Humanidad']],
   zaragoza: [[1808, 'Los Sitios'], [1908, 'Exposición Hispano-Francesa'], [2008, 'Expo 2008']],
+  bilbao: [[1300, 'Fundación de la villa'], [1876, 'Ensanche'], [1983, 'Riada'], [1997, 'Museo Guggenheim']],
 }[config.city] || [];
 const hist = document.getElementById('hist'), hctx = hist.getContext('2d');
 const yMin = config.yearMin < OLD ? config.yearMin : Math.floor(config.yearMin / 10) * 10, yMax = config.yearMax;
@@ -618,6 +621,8 @@ modeButtons.forEach(b => b.onclick = () => setMode(+b.dataset.mode));
 const about = document.getElementById('about');
 document.querySelector('.about-open').onclick = () => about.showModal();
 about.querySelector('.about-close').onclick = () => about.close();
+if (FORAL) document.getElementById('src-cadastre').textContent = 'Edificios, partes, plantas, año, uso y viviendas: '
+  + 'Catastro foral de Bizkaia, © Bizkaiko Foru Aldundia (INSPIRE Buildings).';
 
 // ---------- Fly ----------
 let flight = null;
@@ -662,7 +667,8 @@ function cardHtml(i, pinned) {
     <p class="era"><i style="background:${p.color}"></i>${p.label}${['', ' · año redondeado', ' · año estimado', ` · fecha ${HSRC}`, ` · periodo ${HSRC}`][b.flag] || ''}</p>
     <dl>${rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
     ${pinned ? `<p class="links">
-      <a href="https://www1.sedecatastro.gob.es/Cartografia/mapa.aspx?refcat=${encodeURIComponent(b.ref)}" target="_blank" rel="noopener">Catastro</a>
+      ${FORAL ? '<a href="https://geo.bizkaia.eus/" target="_blank" rel="noopener">Catastro de Bizkaia</a>'
+        : `<a href="https://www1.sedecatastro.gob.es/Cartografia/mapa.aspx?refcat=${encodeURIComponent(b.ref)}" target="_blank" rel="noopener">Catastro</a>`}
       <a href="https://www.google.com/maps/search/?api=1&query=${ll}" target="_blank" rel="noopener">Mapa</a>
       <a href="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${ll}" target="_blank" rel="noopener">Street View</a>
       ${h?.iaph ? `<a href="https://guiadigital.iaph.es/bien/inmueble/${h.iaph}" target="_blank" rel="noopener">IAPH</a>` : ''}
@@ -709,10 +715,11 @@ canvas.addEventListener('pointerup', e => {
 
 // ---------- Search by cadastral reference ----------
 const find = document.getElementById('find');
+find.setAttribute('aria-label', `Buscar por referencia catastral (${REF_LEN} caracteres)`);
 let refIndex = null;
 find.addEventListener('keydown', e => {
   if (e.key !== 'Enter') return;
-  const q = find.value.trim().toUpperCase().replace(/\s+/g, '').slice(0, 14);
+  const q = find.value.trim().toUpperCase().replace(/\s+/g, '').slice(0, REF_LEN);
   if (!refIndex) { refIndex = new Map(); for (let i = 0; i < N; i++) if (B.ok[i]) refIndex.set(building(i).ref, i); }
   const i = refIndex.get(q);
   find.classList.toggle('bad', i === undefined);
@@ -799,7 +806,7 @@ document.getElementById('t-shot').onclick = () => {
   x.font = `700 ${Math.round(30 * s)}px Fraunces, Georgia, serif`; x.fillStyle = css.getPropertyValue('--ink');
   x.fillText(LABEL, 24 * s, 48 * s);
   x.font = `600 ${Math.round(13 * s)}px Manrope, sans-serif`; x.fillStyle = css.getPropertyValue('--accent');
-  x.fillText(`${state.year >= yMax ? 'Hoy' : state.year} · spain-cities.quijada.uk · Juanma Quijada · Catastro, IGN, OSM`, 24 * s, 72 * s);
+  x.fillText(`${state.year >= yMax ? 'Hoy' : state.year} · spain-cities.quijada.uk · Juanma Quijada · ${FORAL ? 'Catastro de Bizkaia' : 'Catastro'}, IGN, OSM`, 24 * s, 72 * s);
   out.toBlob(blob => {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
