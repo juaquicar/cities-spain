@@ -647,7 +647,7 @@ const periodOf = k => periods[k] || periods[0];
 function cardHtml(i, pinned) {
   const b = building(i), p = periodOf(b.period), u = uses[b.use] || uses[0];
   // a heritage record, a must-see, or both (the record's fields win)
-  const h = b.mon || SEE.get(i) ? { ...SEE.get(i), ...b.mon } : null;
+  const h = b.mon || SEE_BY_G.get(i) ? { ...SEE_BY_G.get(i), ...b.mon } : null;
   const stop = pinned && walk ? walk.stops.findIndex(s => s.g === i) : -1;
   const year = h?.y0 != null && b.flag >= 3 && h.y1 && h.y1 !== h.y0 ? `${h.y0}–${h.y1}` : (b.flag && b.flag !== 3 ? `c. ${b.year}` : b.year);
   const rows = [
@@ -663,7 +663,7 @@ function cardHtml(i, pinned) {
     b.flag >= 3 && b.ycat !== b.year ? ['Año en Catastro', `${b.ycat} (reforma)`] : null,
     ['Ref. catastral', b.ref],
   ].filter(Boolean);
-  const img = h?.img ? `<img class="photo" alt="" loading="lazy" src="https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(h.img)}?width=560">` : '';
+  const img = photo(h?.img);
   const ll = `${b.lat.toFixed(6)},${b.lon.toFixed(6)}`;
   return `${pinned ? '<button class="close" aria-label="Cerrar">×</button>' : ''}
     ${stop >= 0 ? stopHtml(stop) : ''}
@@ -683,27 +683,46 @@ function cardHtml(i, pinned) {
       ${h?.wp ? `<a href="${esc(h.wp)}" target="_blank" rel="noopener">Wikipedia</a>` : ''}
     </p>${h?.img ? '<p class="credit">Foto: Wikimedia Commons</p>' : ''}` : ''}`;
 }
-let hoverGid = -1, pinned = -1;
+const photo = file => file ? `<img class="photo" alt="" loading="lazy" src="https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(file)}?width=560">` : '';
+// a square, a park, a bridge or a gate: no building under it, so only its name, picture and article
+function spotHtml(p) {
+  const stop = walk ? walk.stops.indexOf(p) : -1, ll = latlon(p);
+  return `<button class="close" aria-label="Cerrar">×</button>
+    ${stop >= 0 ? stopHtml(stop) : ''}${photo(p.img)}
+    <h3 class="spot">${esc(p.n)}</h3>${p.d ? `<p class="desc">${esc(p.d)}</p>` : ''}
+    ${p.wp ? '<p class="summary" aria-live="polite"></p>' : ''}
+    <p class="links">
+      <a href="https://www.google.com/maps/dir/?api=1&travelmode=walking&destination=${ll}" target="_blank" rel="noopener">Cómo llegar</a>
+      <a href="https://www.google.com/maps/search/?api=1&query=${ll}" target="_blank" rel="noopener">Mapa</a>
+      <a href="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${ll}" target="_blank" rel="noopener">Street View</a>
+      ${p.wd ? `<a href="https://www.wikidata.org/wiki/${encodeURIComponent(p.wd)}" target="_blank" rel="noopener">Wikidata</a>` : ''}
+      ${p.wp ? `<a href="${esc(p.wp)}" target="_blank" rel="noopener">Wikipedia</a>` : ''}
+    </p>${p.img ? '<p class="credit">Foto: Wikimedia Commons</p>' : ''}`;
+}
+// pinned: the building's row, -1 for none, PLACE while the card is a place's (pinnedSpot)
+const PLACE = -2;
+let hoverGid = -1, pinned = -1, pinnedSpot = null, pinSeq = 0;
 function placeCard(x, y) {
   const w = card.offsetWidth, h = card.offsetHeight;
   card.style.left = `${Math.min(innerWidth - w - 12, x + 16)}px`;
   card.style.top = `${Math.max(12, Math.min(innerHeight - h - 12, y - h / 2))}px`;
 }
 function showCard(i, x, y) {
-  if (pinned >= 0) return;
+  if (pinned !== -1) return;
   if (i < 0) { card.hidden = true; return; }
   card.className = 'card';
   card.innerHTML = cardHtml(i, false);
   card.hidden = false;
   placeCard(x, y);
 }
-function pinCard(i, x, y) {
-  pinned = i;
-  uniforms.uSelected.value = i;
-  if (i < 0) { card.hidden = true; return; }
+function pinCard(i, x, y, spot = null) {
+  pinned = spot ? PLACE : i; pinnedSpot = spot;
+  uniforms.uSelected.value = spot ? -1 : i;
+  const seq = ++pinSeq;
+  if (pinned === -1) { card.hidden = true; return; }
   card.className = 'card pinned';
   if (narrow.matches) foldPanel(false);
-  card.innerHTML = cardHtml(i, true);
+  card.innerHTML = spot ? spotHtml(spot) : cardHtml(i, true);
   card.hidden = false;
   placeCard(x, y);
   card.querySelector('.close').onclick = () => { if (walk) endWalk(); pinCard(-1); };
@@ -711,9 +730,9 @@ function pinCard(i, x, y) {
     const b = e.target.closest('[data-go]');
     if (b) b.dataset.go === 'fin' ? (endWalk(), pinCard(-1)) : goStop(walk.k + +b.dataset.go);
   });
-  const sum = card.querySelector('.summary'), wp = { ...SEE.get(i), ...heritage[i] }.wp;
+  const sum = card.querySelector('.summary'), wp = spot ? spot.wp : { ...SEE_BY_G.get(i), ...heritage[i] }.wp;
   if (sum && wp) summary(wp).then(t => {
-    if (pinned !== i || !t) { sum.remove(); return; }
+    if (seq !== pinSeq || !t) { sum.remove(); return; }
     sum.textContent = t;
     if (!narrow.matches) placeCard(x, y);
   });
@@ -766,37 +785,48 @@ find.addEventListener('keydown', e => {
 });
 
 // ---------- Tourist mode: what to see, walking routes ----------
-// data/turismo.json (pipeline): must-sees by relevance, and routes of 5–12 stops in walking order, by building row.
-// Only rows that are loaded count; a route left with fewer than 3 stops is dropped.
+// data/turismo.json (pipeline): must-sees by relevance, and routes of 5–12 stops in walking order. An entry is a
+// building (g, its row) or a place with no building (x, z, y, lat, lon and m, its municipality: a square, a park).
+// Only what is loaded counts; a route left with fewer than 3 stops is dropped.
 const okRow = g => Number.isInteger(g) && g >= 0 && g < N && B.ok[g] === 1;
-const SEE = new Map((tourism?.destacados || []).filter(d => okRow(d.g)).map(d => [d.g, d]));
-const ROUTES = (tourism?.rutas || []).map(r => ({ ...r, stops: (r.stops || []).filter(s => okRow(s.g)) })).filter(r => r.stops.length >= 3);
+function spotOf(e) {
+  if (e.g != null) {
+    if (!okRow(e.g)) return null;
+    const b = building(e.g);
+    return { ...e, x: b.x, z: b.z, lat: b.lat, lon: b.lon, muni: b.muni, top: new THREE.Vector3(b.x, b.base + b.h + 2, b.z) };
+  }
+  if (![e.x, e.z, e.lat, e.lon].every(Number.isFinite) || PARTIAL && !LOADED.has(e.m)) return null;
+  return { ...e, g: -1, muni: e.m ?? -1, top: new THREE.Vector3(e.x, (Number.isFinite(e.y) ? e.y : groundAt(e.x, e.z)) + 6, e.z) };
+}
+const SEE = (tourism?.destacados || []).map(spotOf).filter(Boolean);
+const SEE_BY_G = new Map(SEE.filter(s => s.g >= 0).map(s => [s.g, s]));
+const ROUTES = (tourism?.rutas || []).map(r => ({ ...r, stops: (r.stops || []).map(spotOf).filter(Boolean) }))
+  .filter(r => r.stops.length >= 3);
 const seeBtn = document.getElementById('g-see'), routesBtn = document.getElementById('g-routes');
 const routesBox = document.getElementById('routes'), labelsBox = document.getElementById('labels');
 const lineSvg = document.getElementById('route-line'), lineUnder = lineSvg.querySelector('.under'), lineOver = lineSvg.querySelector('.over');
-seeBtn.hidden = !SEE.size; routesBtn.hidden = !ROUTES.length;
+seeBtn.hidden = !SEE.length; routesBtn.hidden = !ROUTES.length;
 const latlon = b => `${b.lat.toFixed(6)},${b.lon.toFixed(6)}`;
 
-// fly to a building and open its card; on a phone the card covers the lower half, so aim past the building
+// fly to a building or a place and open its card; on a phone the card covers the lower half, so aim past it
 let pinTimer = 0;
-function goTo(i, span = 650, az = 200) {
-  const b = building(i);
-  if (state.muni >= 0 && b.muni !== state.muni) setMuni(-1, false);
-  if (b.year > state.year) setYear(yMax);
+function goSpot(p, span = 650, az = 200) {
+  if (state.muni >= 0 && p.muni !== state.muni) setMuni(-1, false);
+  if (p.g >= 0 && B.year[p.g] > state.year) setYear(yMax);
   pinCard(-1);
   const s = narrow.matches ? span * 0.55 : 0, r = THREE.MathUtils.degToRad(az);
-  flyTo(view(b.x + s * Math.sin(r), b.z + s * Math.cos(r), span, az, 38));
+  flyTo(view(p.x + s * Math.sin(r), p.z + s * Math.cos(r), span, az, 38));
   clearTimeout(pinTimer);
-  pinTimer = setTimeout(() => pinCard(i, innerWidth / 2, innerHeight / 2), 1400);
+  pinTimer = setTimeout(() => pinCard(p.g, innerWidth / 2, innerHeight / 2, p.g >= 0 ? null : p), 1400);
 }
 
 // "Qué ver": names over the must-sees, the most relevant first, as many as fit without overlapping
 let seeOn = false;
 function setSee(on) {
-  seeOn = on && SEE.size > 0;
+  seeOn = on && SEE.length > 0;
   seeBtn.setAttribute('aria-pressed', String(seeOn));
   // nothing to name from here: frame the dozen most relevant
-  if (seeOn && !walk && drawOverlay() < 3) frame([...SEE.keys()].filter(g => B.year[g] <= state.year).slice(0, 12).map(roof));
+  if (seeOn && !walk && drawOverlay() < 3) frame(SEE.filter(p => p.g < 0 || B.year[p.g] <= state.year).slice(0, 12).map(p => p.top));
 }
 // the view that takes in a set of points
 function frame(pts, min = 1200) {
@@ -818,11 +848,6 @@ function makeTag(key, html, cls, onclick, g = -1) {
     tags.set(key, t);
   }
   return t;
-}
-const roofs = new Map();
-function roof(g) {
-  if (!roofs.has(g)) { const b = building(g); roofs.set(g, new THREE.Vector3(b.x, b.base + b.h + 2, b.z)); }
-  return roofs.get(g);
 }
 const P = new THREE.Vector3();
 function screenOf(v) {
@@ -860,14 +885,14 @@ function drawOverlay() {
   } else if (seeOn) {
     const max = narrow.matches ? 9 : 14, far = uniforms.uFog.value.y * 0.7;
     let n = 0;
-    for (const [g, d] of SEE) {
+    for (const [k, d] of SEE.entries()) {
       if (n >= max) break;
-      if (B.year[g] > state.year || state.only && !inMuni(g) || g === pinned) continue;
-      const v = roof(g);
-      if (camera.position.distanceTo(v) > far) continue;
-      const p = screenOf(v);
+      if (d.g >= 0 && (B.year[d.g] > state.year || d.g === pinned) || d === pinnedSpot) continue;
+      if (state.only && state.muni >= 0 && d.muni !== state.muni) continue;
+      if (camera.position.distanceTo(d.top) > far) continue;
+      const p = screenOf(d.top);
       if (!p) continue;
-      const t = makeTag(`g${g}`, `<span>${esc(d.n)}</span>`, 'tag', () => goTo(g), g);
+      const t = makeTag(`see${k}`, `<span>${esc(d.n)}</span>`, d.g >= 0 ? 'tag' : 'tag place', () => goSpot(d), d.g);
       const x = p[0] - t.w / 2, y = p[1] - t.h - 12;
       if (!fits(x, y, t.w, t.h)) continue;
       place(t, x, y); n++;
@@ -904,10 +929,7 @@ routesList.onclick = e => {
   if (b) startWalk(ROUTES[+b.dataset.k]);
 };
 function startWalk(r, k = 0) {
-  const stops = r.stops.map(s => {
-    const b = building(s.g);
-    return { ...s, x: b.x, z: b.z, lat: b.lat, lon: b.lon, at: new THREE.Vector3(b.x, groundAt(b.x, b.z) + 3, b.z) };
-  });
+  const stops = r.stops.map(s => ({ ...s, at: new THREE.Vector3(s.x, groundAt(s.x, s.z) + 3, s.z) }));
   // a straight line between stops, laid on the ground every 30 m
   const path = [];
   for (let j = 0; j < stops.length - 1; j++) {
@@ -931,7 +953,7 @@ function goStop(k) {
   // look ahead along the route: the camera stands on the side the walker comes from
   const s = walk.stops[k], a = walk.stops[k - 1], n = walk.stops[k + 1];
   const dx = a ? a.x - s.x : s.x - n.x, dz = a ? a.z - s.z : s.z - n.z;
-  goTo(s.g, 560, THREE.MathUtils.radToDeg(Math.atan2(dx, dz)));
+  goSpot(s, 560, THREE.MathUtils.radToDeg(Math.atan2(dx, dz)));
   writeHash();
 }
 function endWalk() {
@@ -1054,7 +1076,7 @@ addEventListener('keydown', e => {
   else if (k === 'h') goHome();
   else if (k === 'r') setOrbit(!controls.autoRotate);
   else if (k === 'n') setTheme(theme === 'noche' ? 'dia' : 'noche');
-  else if (k === 'v' && SEE.size) setSee(!seeOn);
+  else if (k === 'v' && SEE.length) setSee(!seeOn);
   else if (walk && (k === 'arrowright' || k === 'arrowleft')) { e.preventDefault(); goStop(walk.k + (k === 'arrowright' ? 1 : -1)); }
   else if (k === 'escape') { if (!routesBox.hidden) openRoutes(false); else { if (walk) endWalk(); pinCard(-1); } }
   else return;
@@ -1097,6 +1119,8 @@ addEventListener('hashchange', () => {
 });
 resize();
 
+// the hash as it came: setMuni below rewrites it, and ano, ref and ruta are read after that
+const HASH0 = new URLSearchParams(location.hash.slice(1));
 const start = readHash();
 // home: the whole build, or the box around the chosen municipalities
 const HOME = (() => {
@@ -1122,7 +1146,7 @@ else {
 setMuni(munis.length > 1 ? start : munis[0].id, false);
 setTheme(theme);
 {
-  const h = new URLSearchParams(location.hash.slice(1));
+  const h = HASH0;
   const y = +h.get('ano');
   if (y >= yMin && y < yMax) setYear(y);
   const r = ROUTES.find(r => r.id === h.get('ruta'));
@@ -1145,7 +1169,7 @@ renderer.setAnimationLoop(now => {
   const d = camera.position.distanceTo(controls.target);
   uniforms.uFog.value.set(d * 1.6, d * 4.5);
   groundUniforms.uFog.value.copy(uniforms.uFog.value);
-  if (pointer && pinned < 0 && now - lastPick > 60 && !flight) {
+  if (pointer && pinned === -1 && now - lastPick > 60 && !flight) {
     lastPick = now;
     let i = pick(pointer[0], pointer[1]);
     if (i >= 0 && (!B.ok[i] || state.only && !inMuni(i))) i = -1;
