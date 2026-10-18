@@ -1,0 +1,36 @@
+plugins { id "com.android.application" }
+
+// Signing comes from ~/.android/cities-spain.properties (storeFile, storePassword, keyAlias, keyPassword), kept out of the repo.
+def keys = new Properties()
+def keyFile = new File(System.getProperty("user.home"), ".android/cities-spain.properties")
+if (keyFile.exists()) keyFile.withInputStream { keys.load(it) }
+
+android {
+    namespace "uk.quijada.ciudades"
+    compileSdk 35
+    defaultConfig {
+        applicationId "uk.quijada.ciudades"
+        minSdk 26
+        targetSdk 35
+        versionCode 1
+        versionName "1.0"
+    }
+    buildFeatures { buildConfig true }
+    signingConfigs {
+        release {
+            if (keys.storeFile) {
+                storeFile file(keys.storeFile); storePassword keys.storePassword
+                keyAlias keys.keyAlias; keyPassword keys.keyPassword
+            }
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt")
+            signingConfig signingConfigs.release
+        }
+    }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_11; targetCompatibility JavaVersion.VERSION_11 }
+}

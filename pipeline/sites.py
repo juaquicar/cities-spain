@@ -277,6 +277,11 @@ def portal(deploy=False):
                            municipios=munis))
     (out / "cities.json").write_text(json.dumps(cities, ensure_ascii=False, separators=(",", ":")))
     canonical(out / "index.html", PORTAL_URL)
+    # the Android app (android/, built with Gradle), downloadable from the portal
+    apk = Path("android/app/build/outputs/apk/release/app-release.apk")
+    if apk.exists():
+        (out / "app").mkdir()
+        shutil.copy(apk, out / "app" / "ciudades-de-espana.apk")
     urls = [PORTAL_URL] + [f"{PORTAL_URL}{c['key']}/" for c in cities]
     (out / "sitemap.xml").write_text('<?xml version="1.0" encoding="UTF-8"?>\n'
                                      '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'

@@ -29,6 +29,9 @@ function setTheme(t) {
 themeBtn.onclick = () => setTheme(document.documentElement.dataset.theme === 'noche' ? 'dia' : 'noche');
 setTheme(document.documentElement.dataset.theme === 'dia' ? 'dia' : 'noche');
 
+// ---------- Android app: offered everywhere but inside the app itself and on iPhone ----------
+$('apk').hidden = /CiudadesApp|iPhone|iPad/.test(navigator.userAgent);
+
 // ---------- Cards ----------
 const nMunis = cities.reduce((s, c) => s + c.municipios.length, 0);
 $('totals').innerHTML = `<span>${fmt(cities.reduce((s, c) => s + c.buildings, 0))}</span> edificios ·

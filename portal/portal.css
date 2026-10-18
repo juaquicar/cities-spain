@@ -31,6 +31,10 @@ button, input { font: inherit; color: inherit; }
   font-weight: 600; font-size: 13px; }
 .ghost:hover { border-color: var(--accent); }
 .ghost.small { padding: 4px 10px; font-size: 12px; }
+.ghost.apk { text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+.ghost.apk::before { content: ""; width: 14px; height: 14px; background: currentColor; mask: var(--android) center / contain no-repeat;
+  -webkit-mask: var(--android) center / contain no-repeat; }
+:root { --android: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 9h12v8a1 1 0 0 1-1 1h-1v3h-2v-3h-4v3H8v-3H7a1 1 0 0 1-1-1zm-3 0h2v7H3zm16 0h2v7h-2zM7.5 8a4.5 4.5 0 0 1 9 0zM8.6 2.3l1.2 1.9M15.4 2.3l-1.2 1.9' fill='black' stroke='black' stroke-width='.8'/%3E%3C/svg%3E"); }
 
 /* ---------- Hero ---------- */
 .hero { padding: calc(env(safe-area-inset-top, 0px) + 28px) var(--gutter) 10px; max-width: 1180px; margin: 0 auto; position: relative;

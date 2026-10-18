@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="app_name">Ciudades de España</string>
+  <color name="brand">#A8322D</color>
+  <color name="night">#0E1522</color>
+  <style name="Theme.Ciudades" parent="android:Theme.Material.NoActionBar">
+    <item name="android:windowBackground">@color/night</item>
+    <item name="android:statusBarColor">@color/night</item>
+    <item name="android:navigationBarColor">@color/night</item>
+    <!-- Android 15 draws apps edge to edge; the portal's pages are laid out for a browser's frame -->
+    <item name="android:windowOptOutEdgeToEdgeEnforcement">true</item>
+  </style>
+</resources>

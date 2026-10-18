@@ -93,6 +93,19 @@ partes, con referencias de 17 caracteres. © Bizkaiko Foru Aldundia. San Sebasti
 (`cadastre="gipuzkoa"`): un único GML de toda la provincia (1 GB, se lee en streaming y se queda Donostia), en EPSG:3042
 con el norte primero; referencia `<parcela foral>-<edificio>`. CC BY-SA © Gipuzkoako Foru Aldundia.
 
+### App Android
+
+`android/` es una app mínima (WebView, sin dependencias, ~10 kB) que abre el portal a pantalla completa: las páginas del
+portal se quedan en la app y cualquier otro enlace (Wikipedia, Google Maps, LinkedIn) se abre en el navegador; acepta
+enlaces a spain-cities.quijada.uk. El portal la ofrece en `app/ciudades-de-espana.apk` (botón «App Android», oculto
+dentro de la propia app, que se identifica con `CiudadesApp` en el user agent).
+
+    cd android && JAVA_HOME=<JDK 17> gradle assembleRelease     # Gradle 8.14, Android SDK 35
+    uv run python -m pipeline.sites portal --deploy             # copia el APK al portal
+
+La firma sale de `~/.android/cities-spain.properties` (fuera del repo); hay que conservar esa clave para que las
+actualizaciones se instalen encima.
+
 ### Regiones
 
 `pipeline/region.py` define cada región (`REGION`, por defecto `sevilla`): oficina del Catastro, huso UTM del marco

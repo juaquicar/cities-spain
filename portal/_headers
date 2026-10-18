@@ -14,3 +14,8 @@
 
 /:city/vendor/*
   Cache-Control: public, max-age=604800
+
+/app/*
+  Content-Type: application/vnd.android.package-archive
+  Content-Disposition: attachment; filename="ciudades-de-espana.apk"
+  Cache-Control: public, max-age=0, must-revalidate
