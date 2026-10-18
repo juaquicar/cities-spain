@@ -1,8 +1,8 @@
 """Terrain: the IGN's 5 m digital terrain model (MDT05, WCS, CC BY 4.0 scne.es) under every building and as a ground mesh.
 
 The Aljarafe stands on a plateau 100–150 m above the Guadalquivir plain, so a flat model misplaces it badly.
-The WCS serves the whole peninsula in UTM 30N only; a region in another zone (Barcelona, 31N) is sampled and
-reprojected from it.
+The WCS serves the peninsula and the Balearics in UTM 30N only, and the Canaries in REGCAN95 UTM 28N; a region in
+another zone (Barcelona, 31N) is sampled and reprojected from it.
 
   data/base.parquet      ref → ground level of each building (lowest terrain under its outline, metres)
   web/data/terrain.bin   heightfield for the viewer, little-endian:
@@ -31,9 +31,9 @@ from .region import DATA, REGION
 from .s03_tiles import ORIGIN, OUT
 
 WCS = ("https://servicios.idee.es/wcs-inspire/mdt?service=WCS&version=2.0.1&request=GetCoverage"
-       "&CoverageId=Elevacion25830_{res}&format=image/tiff&subset=x({x0},{x1})&subset=y({y0},{y1})")
+       "&CoverageId=Elevacion{crs}_{res}&format=image/tiff&subset=x({x0},{x1})&subset=y({y0},{y1})")
 CACHE = DATA / "raw/mdt"
-DEM_CRS = 25830
+DEM_CRS = REGION.dem_crs
 CHUNK = 8000          # metres per WCS request of the 5 m model, fetched only where there are buildings
 CHUNK25 = 40000       # metres per request of the 25 m model, for the ground mesh over the whole area
 PAD = 2500            # metres of terrain around the municipalities
@@ -44,7 +44,7 @@ BASE = OUT.parent / "base.parquet" if os.environ.get("SITE_OUT") else DATA / "ba
 def fetch(x0, y0, res=5, size=CHUNK):
     f = CACHE / (f"{x0}_{y0}.tif" if res == 5 else f"{x0}_{y0}_{res}.tif")
     if not f.exists():
-        url = WCS.format(res=res, x0=x0, x1=x0 + size, y0=y0, y1=y0 + size)
+        url = WCS.format(crs=DEM_CRS, res=res, x0=x0, x1=x0 + size, y0=y0, y1=y0 + size)
         for attempt in range(5):
             try:
                 r = requests.get(url, timeout=300)

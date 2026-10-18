@@ -6,7 +6,7 @@ city itself) are left out by their type. A place sits on the building under its 
 metres); squares, parks, bridges and gates stand on their own point.
 
 Output: data[/region]/turismo.parquet, one row per Wikidata item: wd, name, desc, sl, wp, img, ref (building, may be
-empty), x, y (region frame), lon, lat. s03_tiles picks each site's share and writes turismo.json.
+empty), x, y (region frame), lon, lat. A stop's "at" overrides its Wikidata point. s03_tiles picks each site's share and writes turismo.json.
 """
 import json
 import re
@@ -72,6 +72,8 @@ def query():
 
 def main():
     rows, stops = query()
+    # a stop may carry its own point ("at": [lon, lat]) where Wikidata's is wrong
+    at = {s["wd"]: s["at"] for r in routes() for s in r["stops"] if "at" in s}
     items = {}
     for b in rows:
         v = lambda k: b.get(k, {}).get("value", "")
@@ -93,7 +95,7 @@ def main():
                           wp=v("art"), img=unquote(v("img").rsplit("/", 1)[-1]),
                           open=bool(OPEN_PLACE.search(types)) and not BUILDING.search(types) or
                                (qid in stops and bool(re.search("barrio|judería", types))),  # a quarter on a walk
-                          geometry=Point(map(float, pt[6:-1].split())))
+                          geometry=Point(at.get(qid) or map(float, pt[6:-1].split())))
     m = gpd.GeoDataFrame(list(items.values()), crs=4326)
     m["lon"], m["lat"] = m.geometry.x, m.geometry.y
     m = m.to_crs(REGION.crs)

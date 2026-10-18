@@ -51,9 +51,67 @@ def load_bizkaia(code: str):
     return b.drop(columns="numberOfFloorsAboveGround"), p
 
 
+# Gipuzkoa's INSPIRE uses → the Catastro's codes
+GIPUZKOA_USE = {"residence": "1_residential", "individualResidence": "1_residential", "collectiveResidence": "1_residential",
+                "agriculture": "2_agriculture", "industrial": "3_industrial", "commerceAndServices": "4_commerceAndServices",
+                "office": "4_1_office", "trade": "4_2_retail", "publicServices": "4_3_publicServices"}
+
+
+def gipuzkoa_buildings(gml, muni: str):
+    """Stream the province's GML (1 GB) and yield the buildings of one municipality (its three-digit foral number)."""
+    tag, buf = "<bu-ext2d:Building ", ""
+    with open(gml, encoding="utf-8", errors="replace") as f:
+        while chunk := f.read(1 << 24):
+            buf += chunk
+            blocks = buf.split(tag)
+            buf = blocks.pop()
+            for block in blocks:
+                if f"ES.GFA.CP.{muni}-" in block:
+                    yield block
+        if f"ES.GFA.CP.{muni}-" in buf:
+            yield buf
+
+
+def ring(pos: str):
+    v = np.array(pos.split(), float).reshape(-1, 2)
+    return v[:, ::-1]  # EPSG:3042 lists northing first
+
+
+def load_gipuzkoa(code: str):
+    """The foral cadastre gives buildings only, with year, use and floors; each building is its own single part. Its
+    reference (7 digits) names the parcel, which several buildings may share, so the building's own number follows it."""
+    from shapely.geometry import Polygon
+    rows = []
+    for block in gipuzkoa_buildings(RAW / code / "ES.GFA.BU.gml", code[2:]):
+        get = lambda pat: (m.group(1) if (m := re.search(pat, block)) else None)
+        poly = re.search(r"<gml:Polygon.*?</gml:Polygon>", block, re.S)
+        if not poly:
+            continue
+        ext = re.search(r"<gml:exterior>.*?<gml:posList[^>]*>([^<]+)", poly.group(0), re.S)
+        holes = re.findall(r"<gml:interior>.*?<gml:posList[^>]*>([^<]+)", poly.group(0), re.S)
+        use = get(r'CurrentUseValue/(\w+)"')
+        rows.append(dict(localId=f'{get(r"<bu-base:reference>(\d+)")}-{get(r"<base:localId>(\d+)")}',
+                         beginning=get(r"<bu-base:end>(\d{4})") or "",
+                         currentUse=GIPUZKOA_USE.get(use, "") if use else "",
+                         numberOfDwellings=float(get(r"numberOfDwellings[^>]*>(\d+)") or "nan"),
+                         numberOfBuildingUnits=np.nan,
+                         conditionOfConstruction=get(r"ConditionOfConstructionValue/(\w+)") or "",
+                         numberOfFloorsAboveGround=float(get(r"numberOfFloorsAboveGround[^>]*>(\d+)") or "nan"),
+                         numberOfFloorsBelowGround=float(get(r"numberOfFloorsBelowGround[^>]*>(\d+)") or "nan"),
+                         geometry=Polygon(ring(ext.group(1)), [ring(h) for h in holes])))
+    b = gpd.GeoDataFrame(rows, crs=3042).to_crs(CRS)
+    b["value"] = np.nan
+    b["muni"] = ORDER.index(code)
+    p = b[["localId", "numberOfFloorsAboveGround", "numberOfFloorsBelowGround", "geometry"]].copy()
+    p["ref"] = p.localId
+    return b.drop(columns=["numberOfFloorsAboveGround", "numberOfFloorsBelowGround"]), p
+
+
 def load(code: str):
     if REGION.cadastre == "bizkaia":
         return load_bizkaia(code)
+    if REGION.cadastre == "gipuzkoa":
+        return load_gipuzkoa(code)
     base = RAW / code / f"A.ES.SDGC.BU.{code}."
     b = pyogrio.read_dataframe(f"{base}building.gml", layer="Building", columns=B_COLS)
     p = pyogrio.read_dataframe(f"{base}buildingpart.gml", layer="BuildingPart", columns=P_COLS)

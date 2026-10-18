@@ -647,5 +647,977 @@
     }
    ]
   }
+ ],
+ "malaga": [
+  {
+   "id": "historica",
+   "t": "Málaga, de la Alcazaba al puerto",
+   "d": "Del teatro romano y la fortaleza musulmana a la catedral, el Picasso y el muelle.",
+   "stops": [
+    {
+     "wd": "Q3849447",
+     "n": "Teatro romano",
+     "txt": "Del siglo I, redescubierto en 1951 al pie de la Alcazaba."
+    },
+    {
+     "wd": "Q3127243",
+     "n": "Alcazaba",
+     "txt": "Palacio fortaleza del siglo XI, unido por una coracha al castillo."
+    },
+    {
+     "wd": "Q1049197",
+     "n": "Gibralfaro",
+     "txt": "Castillo nazarí del siglo XIV con las mejores vistas de la ciudad y la bahía."
+    },
+    {
+     "wd": "Q1368396",
+     "n": "Museo Picasso",
+     "txt": "En el palacio de Buenavista, a pocos pasos de la casa natal del pintor."
+    },
+    {
+     "wd": "Q1582758",
+     "n": "Catedral, «la Manquita»",
+     "txt": "Renacentista, con su segunda torre sin terminar desde el siglo XVIII."
+    },
+    {
+     "wd": "Q11680432",
+     "n": "Calle Larios",
+     "txt": "La calle comercial de la ciudad, abierta en 1891 por la familia Larios."
+    },
+    {
+     "wd": "Q106989774",
+     "n": "Mercado de Atarazanas",
+     "txt": "Mercado de hierro del siglo XIX que conserva la puerta nazarí de las atarazanas."
+    },
+    {
+     "wd": "Q16545730",
+     "n": "Centre Pompidou",
+     "txt": "El cubo de colores del Muelle Uno, en el puerto renovado."
+    }
+   ]
+  }
+ ],
+ "murcia": [
+  {
+   "id": "barroca",
+   "t": "Murcia barroca",
+   "d": "De la catedral al Casino y al río Segura.",
+   "stops": [
+    {
+     "wd": "Q2419290",
+     "n": "Catedral",
+     "txt": "Gótica por dentro y barroca por fuera: su fachada imafronte es una de las cumbres del barroco español."
+    },
+    {
+     "wd": "Q6057662",
+     "n": "Palacio Episcopal",
+     "txt": "Rococó del siglo XVIII, frente a la catedral en la plaza del Cardenal Belluga."
+    },
+    {
+     "wd": "Q8342036",
+     "n": "Casino",
+     "txt": "Patio árabe, biblioteca y salón de baile en la calle Trapería, del siglo XIX."
+    },
+    {
+     "wd": "Q9082195",
+     "n": "Teatro Romea",
+     "txt": "Teatro del siglo XIX, reconstruido dos veces tras sendos incendios."
+    },
+    {
+     "wd": "Q11694542",
+     "n": "Museo Salzillo",
+     "txt": "Los pasos de Semana Santa y el belén de Francisco Salzillo, el gran escultor murciano."
+    },
+    {
+     "wd": "Q4441204",
+     "n": "Puente Viejo",
+     "txt": "El puente de piedra del siglo XVIII sobre el Segura, con su capilla de la Virgen."
+    }
+   ]
+  }
+ ],
+ "palma": [
+  {
+   "id": "ciutat",
+   "t": "Palma, la ciudad antigua",
+   "d": "De la Seu frente al mar a la Lonja y el castillo de Bellver.",
+   "stops": [
+    {
+     "wd": "Q1298819",
+     "n": "La Seu",
+     "txt": "La catedral gótica junto al mar, con intervenciones de Gaudí y Barceló."
+    },
+    {
+     "wd": "Q3176377",
+     "n": "La Almudaina",
+     "txt": "Alcázar musulmán convertido en palacio de los reyes de Mallorca."
+    },
+    {
+     "wd": "Q557702",
+     "n": "Baños árabes",
+     "txt": "Hammam del siglo X, de lo poco que queda de la Madina Mayurqa."
+    },
+    {
+     "wd": "Q355575",
+     "n": "Sant Francesc",
+     "txt": "Iglesia y claustro gótico con el sepulcro de Ramon Llull."
+    },
+    {
+     "wd": "Q9060903",
+     "n": "Plaza Mayor",
+     "txt": "Plaza porticada del siglo XIX sobre el antiguo convento de la Inquisición."
+    },
+    {
+     "wd": "Q1866881",
+     "n": "La Lonja",
+     "txt": "Gótico civil de Guillem Sagrera, del siglo XV, la bolsa de los mercaderes."
+    },
+    {
+     "wd": "Q261707",
+     "n": "Castillo de Bellver",
+     "txt": "Castillo circular del siglo XIV en lo alto de un pinar sobre la bahía."
+    }
+   ]
+  }
+ ],
+ "las-palmas": [
+  {
+   "id": "vegueta",
+   "t": "Vegueta y Triana",
+   "d": "El barrio fundacional de la ciudad, de 1478, y su vecino comercial.",
+   "stops": [
+    {
+     "wd": "Q1385934",
+     "n": "Catedral de Santa Ana",
+     "txt": "Empezada en el siglo XVI, mezcla gótico, renacimiento y neoclásico."
+    },
+    {
+     "wd": "Q5574225",
+     "n": "Plaza de Santa Ana",
+     "txt": "La plaza mayor de Vegueta, con sus perros de bronce."
+    },
+    {
+     "wd": "Q2813530",
+     "n": "Casa de Colón",
+     "txt": "Casa de los gobernadores donde, según la tradición, se alojó Colón en 1492."
+    },
+    {
+     "wd": "Q5836047",
+     "n": "Ermita de San Antonio Abad",
+     "txt": "Sobre el lugar de la primera iglesia de la ciudad, donde rezó Colón."
+    },
+    {
+     "wd": "Q6010593",
+     "n": "Mercado de Vegueta",
+     "txt": "El mercado más antiguo de la ciudad, de 1863."
+    },
+    {
+     "wd": "Q5873064",
+     "n": "Gabinete Literario",
+     "txt": "Sociedad cultural en un edificio modernista de 1894 en la plaza de Cairasco."
+    },
+    {
+     "wd": "Q206404",
+     "n": "Teatro Pérez Galdós",
+     "txt": "El teatro de la ciudad, decorado por Néstor Martín-Fernández de la Torre."
+    }
+   ]
+  }
+ ],
+ "alicante": [
+  {
+   "id": "centro",
+   "t": "Alicante, del castillo a la Explanada",
+   "d": "Desde el monte Benacantil al casco antiguo y el paseo marítimo.",
+   "stops": [
+    {
+     "wd": "Q429562",
+     "n": "Castillo de Santa Bárbara",
+     "txt": "Fortaleza en lo alto del monte Benacantil, a 166 metros sobre el mar."
+    },
+    {
+     "wd": "Q3395771",
+     "n": "Santa María",
+     "txt": "La iglesia más antigua de la ciudad, gótica sobre la mezquita mayor."
+    },
+    {
+     "wd": "Q5573377",
+     "n": "Ayuntamiento",
+     "txt": "Palacio barroco del siglo XVIII; en su escalera está la cota cero de España."
+    },
+    {
+     "wd": "Q2942405",
+     "n": "Concatedral de San Nicolás",
+     "txt": "Renacentista del siglo XVII, de Agustín Bernardino."
+    },
+    {
+     "wd": "Q9031615",
+     "n": "Mercado Central",
+     "txt": "Mercado modernista de 1921."
+    },
+    {
+     "wd": "Q4889350",
+     "n": "La Explanada",
+     "txt": "El paseo de palmeras con su mosaico ondulado de seis millones de teselas."
+    }
+   ]
+  }
+ ],
+ "granada": [
+  {
+   "id": "alhambra",
+   "t": "Alhambra y Albaicín",
+   "d": "La ciudad nazarí y la ciudad cristiana que se levantó a sus pies.",
+   "stops": [
+    {
+     "wd": "Q47476",
+     "n": "La Alhambra",
+     "txt": "Ciudad palatina de los nazaríes, de los siglos XIII al XV."
+    },
+    {
+     "wd": "Q2046808",
+     "n": "Palacio de Carlos V",
+     "txt": "Palacio renacentista de Pedro Machuca, con su patio circular, dentro de la Alhambra."
+    },
+    {
+     "wd": "Q525811",
+     "n": "Generalife",
+     "txt": "La finca de recreo de los sultanes, con sus jardines y acequias."
+    },
+    {
+     "wd": "Q65016208",
+     "n": "Mirador de San Nicolás",
+     "txt": "La vista de la Alhambra frente a Sierra Nevada desde el Albaicín."
+    },
+    {
+     "wd": "Q119001847",
+     "n": "Carrera del Darro",
+     "txt": "Calle junto al río, bajo la Alhambra, con puentes y casas del siglo XVI."
+    },
+    {
+     "wd": "Q954839",
+     "n": "Corral del Carbón",
+     "txt": "Alhóndiga nazarí del siglo XIV, la única que queda en España."
+    },
+    {
+     "wd": "Q429192",
+     "n": "Capilla Real",
+     "txt": "Panteón de los Reyes Católicos, gótico isabelino."
+    },
+    {
+     "wd": "Q5419362",
+     "n": "Catedral",
+     "txt": "Primera catedral renacentista de España, con fachada de Alonso Cano."
+    }
+   ]
+  }
+ ],
+ "benidorm": [
+  {
+   "id": "skyline",
+   "t": "Benidorm entre dos playas",
+   "d": "Del casco viejo sobre el promontorio a los rascacielos.",
+   "stops": [
+    {
+     "wd": "Q24023821",
+     "n": "Balcón del Mediterráneo",
+     "txt": "Mirador en el promontorio del antiguo castillo, entre las dos playas."
+    },
+    {
+     "wd": "Q9007091",
+     "n": "San Jaime y Santa Ana",
+     "txt": "La iglesia del pueblo marinero, con su cúpula azul, del siglo XVIII."
+    },
+    {
+     "wd": "Q3380106",
+     "n": "Playa de Levante",
+     "txt": "La playa del Benidorm turístico desde los años sesenta."
+    },
+    {
+     "wd": "Q4887949",
+     "n": "Playa de Poniente",
+     "txt": "Tres kilómetros de arena con el paseo de Carlos Ferrater."
+    },
+    {
+     "wd": "Q1810566",
+     "n": "Gran Hotel Bali",
+     "txt": "Durante años el hotel más alto de Europa, con 186 metros."
+    },
+    {
+     "wd": "Q14530911",
+     "n": "Intempo",
+     "txt": "El rascacielos residencial de 192 metros, coronado por un aro dorado."
+    }
+   ]
+  }
+ ],
+ "cordoba": [
+  {
+   "id": "califal",
+   "t": "Córdoba califal y judería",
+   "d": "De la Mezquita al río y las callejas de la judería.",
+   "stops": [
+    {
+     "wd": "Q33200",
+     "n": "Mezquita-Catedral",
+     "txt": "La mezquita omeya, ampliada durante dos siglos, con una catedral en su centro."
+    },
+    {
+     "wd": "Q97625652",
+     "n": "Puente romano",
+     "txt": "Puente sobre el Guadalquivir, reconstruido muchas veces desde el siglo I."
+    },
+    {
+     "wd": "Q97625199",
+     "n": "Torre de la Calahorra",
+     "txt": "Torre que guardaba el puente desde la orilla sur."
+    },
+    {
+     "wd": "Q212625",
+     "n": "Alcázar de los Reyes Cristianos",
+     "txt": "Fortaleza palacio del siglo XIV con jardines y estanques."
+    },
+    {
+     "wd": "Q2643179",
+     "n": "Sinagoga",
+     "txt": "De 1315, una de las tres sinagogas medievales que quedan en España."
+    },
+    {
+     "wd": "Q950331",
+     "n": "Calleja de las Flores",
+     "txt": "La calleja de macetas con la torre de la Mezquita al fondo."
+    },
+    {
+     "wd": "Q97626593",
+     "n": "Palacio de Viana",
+     "txt": "Doce patios, el compendio de los patios cordobeses."
+    },
+    {
+     "wd": "Q3906566",
+     "n": "La Corredera",
+     "txt": "La única plaza mayor cerrada y porticada de Andalucía, del siglo XVII."
+    }
+   ]
+  }
+ ],
+ "toledo": [
+  {
+   "id": "trescult",
+   "t": "Toledo de las tres culturas",
+   "d": "Cristianos, judíos y musulmanes en la ciudad imperial.",
+   "stops": [
+    {
+     "wd": "Q7258531",
+     "n": "Puerta de Bisagra",
+     "txt": "La puerta principal de la muralla, con el escudo de Carlos V."
+    },
+    {
+     "wd": "Q1324080",
+     "n": "Cristo de la Luz",
+     "txt": "Mezquita de 999, la mejor conservada de las de Toledo."
+    },
+    {
+     "wd": "Q2884002",
+     "n": "Zocodover",
+     "txt": "El antiguo zoco, plaza mayor de la ciudad."
+    },
+    {
+     "wd": "Q1326589",
+     "n": "Alcázar",
+     "txt": "Fortaleza en el punto más alto, hoy Museo del Ejército."
+    },
+    {
+     "wd": "Q1123180",
+     "n": "Catedral Primada",
+     "txt": "Cumbre del gótico, con el Transparente de Narciso Tomé."
+    },
+    {
+     "wd": "Q3139146",
+     "n": "Santo Tomé",
+     "txt": "Guarda «El entierro del señor de Orgaz» del Greco."
+    },
+    {
+     "wd": "Q1811506",
+     "n": "Sinagoga del Tránsito",
+     "txt": "Sinagoga del siglo XIV con yeserías mudéjares; Museo Sefardí."
+    },
+    {
+     "wd": "Q1568115",
+     "n": "Santa María la Blanca",
+     "txt": "Sinagoga almohade de arcos de herradura blancos."
+    },
+    {
+     "wd": "Q1289106",
+     "n": "San Juan de los Reyes",
+     "txt": "Monasterio gótico isabelino de los Reyes Católicos."
+    },
+    {
+     "wd": "Q1518670",
+     "n": "Puente de San Martín",
+     "txt": "Puente medieval sobre el Tajo con dos torres."
+    }
+   ]
+  }
+ ],
+ "santiago": [
+  {
+   "id": "camino",
+   "t": "El final del Camino",
+   "d": "Las plazas que rodean la catedral del Apóstol.",
+   "stops": [
+    {
+     "wd": "Q205136",
+     "n": "Catedral",
+     "txt": "Románica por dentro, con el Pórtico de la Gloria, y barroca por fuera."
+    },
+    {
+     "wd": "Q7638209",
+     "n": "Obradoiro",
+     "txt": "La plaza de llegada de los peregrinos."
+    },
+    {
+     "wd": "Q155443",
+     "n": "Hostal dos Reis Católicos",
+     "txt": "Hospital de peregrinos de 1499, hoy parador."
+    },
+    {
+     "wd": "Q2513127",
+     "n": "Pazo de Raxoi",
+     "txt": "Palacio neoclásico, sede del Ayuntamiento y la Xunta."
+    },
+    {
+     "wd": "Q3398340",
+     "n": "San Martín Pinario",
+     "txt": "Gran monasterio benedictino barroco frente a la Azabachería."
+    },
+    {
+     "wd": "Q12398104",
+     "n": "A Quintana",
+     "txt": "La plaza de la Puerta Santa, que se abre en los años santos."
+    },
+    {
+     "wd": "Q55728820",
+     "n": "Mercado de Abastos",
+     "txt": "El mercado de piedra de la ciudad, de 1941."
+    }
+   ]
+  }
+ ],
+ "segovia": [
+  {
+   "id": "acueducto",
+   "t": "Del Acueducto al Alcázar",
+   "d": "La ciudad sobre la peña entre el Eresma y el Clamores.",
+   "stops": [
+    {
+     "wd": "Q244947",
+     "n": "Acueducto",
+     "txt": "Acueducto romano del siglo II, de piedra sin argamasa."
+    },
+    {
+     "wd": "Q1046543",
+     "n": "Casa de los Picos",
+     "txt": "Fachada de puntas de diamante del siglo XV."
+    },
+    {
+     "wd": "Q5910761",
+     "n": "San Martín",
+     "txt": "Románica, con galería porticada."
+    },
+    {
+     "wd": "Q41532894",
+     "n": "Plaza Mayor",
+     "txt": "Plaza irregular con el templete de la música."
+    },
+    {
+     "wd": "Q1499912",
+     "n": "Catedral",
+     "txt": "La última gran catedral gótica de España, del siglo XVI."
+    },
+    {
+     "wd": "Q557337",
+     "n": "Alcázar",
+     "txt": "Castillo palacio en la proa de la ciudad sobre el Eresma."
+    },
+    {
+     "wd": "Q1799223",
+     "n": "Vera Cruz",
+     "txt": "Iglesia dodecagonal de 1208, al otro lado del río."
+    }
+   ]
+  }
+ ],
+ "merida": [
+  {
+   "id": "emerita",
+   "t": "Augusta Emerita",
+   "d": "La capital de la Lusitania romana.",
+   "stops": [
+    {
+     "wd": "Q2700544",
+     "n": "Teatro romano",
+     "txt": "Del siglo I a. C., sede del Festival de Teatro Clásico."
+    },
+    {
+     "wd": "Q2360379",
+     "n": "Anfiteatro",
+     "txt": "Para combates de gladiadores, junto al teatro."
+    },
+    {
+     "wd": "Q3330685",
+     "n": "Museo de Arte Romano",
+     "txt": "Edificio de Rafael Moneo (1986) de ladrillo romano."
+    },
+    {
+     "wd": "Q18808444",
+     "n": "Templo de Diana",
+     "txt": "Templo del foro municipal, conservado dentro de un palacio."
+    },
+    {
+     "wd": "Q2832102",
+     "n": "Alcazaba",
+     "txt": "La alcazaba musulmana más antigua de la península, de 835."
+    },
+    {
+     "wd": "Q588535",
+     "n": "Puente romano",
+     "txt": "Uno de los puentes romanos más largos, sobre el Guadiana."
+    },
+    {
+     "wd": "Q3774528",
+     "n": "Acueducto de los Milagros",
+     "txt": "Arcos de granito y ladrillo que traían el agua de Proserpina."
+    }
+   ]
+  }
+ ],
+ "avila": [
+  {
+   "id": "murallas",
+   "t": "Ávila amurallada",
+   "d": "La muralla medieval y la ciudad de Santa Teresa.",
+   "stops": [
+    {
+     "wd": "Q3050235",
+     "n": "Muralla",
+     "txt": "Dos kilómetros y medio de muralla románica con 87 torres."
+    },
+    {
+     "wd": "Q1402296",
+     "n": "Catedral",
+     "txt": "Catedral fortaleza cuyo ábside es un cubo de la muralla."
+    },
+    {
+     "wd": "Q2887123",
+     "n": "San Vicente",
+     "txt": "Uno de los grandes templos románicos de España."
+    },
+    {
+     "wd": "Q22810999",
+     "n": "Mercado Chico",
+     "txt": "La plaza mayor, sobre el antiguo foro."
+    },
+    {
+     "wd": "Q5991759",
+     "n": "Convento de Santa Teresa",
+     "txt": "Levantado sobre la casa natal de la santa."
+    },
+    {
+     "wd": "Q6102071",
+     "n": "Santo Tomás",
+     "txt": "Monasterio gótico con la tumba del infante Juan."
+    },
+    {
+     "wd": "Q5979622",
+     "n": "Los Cuatro Postes",
+     "txt": "Humilladero con la mejor vista de la muralla."
+    }
+   ]
+  }
+ ],
+ "alcala-de-henares": [
+  {
+   "id": "cervantes",
+   "t": "La ciudad de Cervantes",
+   "d": "La universidad de Cisneros y la ciudad que inspiró las ciudades universitarias de América.",
+   "stops": [
+    {
+     "wd": "Q5142854",
+     "n": "Universidad (San Ildefonso)",
+     "txt": "Fachada plateresca de Rodrigo Gil de Hontañón."
+    },
+    {
+     "wd": "Q21003484",
+     "n": "Plaza de Cervantes",
+     "txt": "La plaza mayor, con la estatua del escritor."
+    },
+    {
+     "wd": "Q5789030",
+     "n": "Corral de Comedias",
+     "txt": "De 1601, uno de los teatros más antiguos de Europa."
+    },
+    {
+     "wd": "Q5740617",
+     "n": "Calle Mayor",
+     "txt": "Calle porticada medieval de la antigua judería."
+    },
+    {
+     "wd": "Q5754771",
+     "n": "Casa natal de Cervantes",
+     "txt": "Recreación de una casa del siglo XVI donde nació el escritor."
+    },
+    {
+     "wd": "Q2365820",
+     "n": "Catedral Magistral",
+     "txt": "Gótica, una de las dos únicas iglesias magistrales del mundo."
+    },
+    {
+     "wd": "Q4785589",
+     "n": "Palacio Arzobispal",
+     "txt": "Donde Colón se reunió por primera vez con los Reyes Católicos."
+    }
+   ]
+  }
+ ],
+ "baeza": [
+  {
+   "id": "renacimiento",
+   "t": "Baeza renacentista",
+   "d": "Plazas y palacios del Renacimiento andaluz.",
+   "stops": [
+    {
+     "wd": "Q27927720",
+     "n": "Plaza del Pópulo",
+     "txt": "Con la fuente de los Leones y la antigua carnicería."
+    },
+    {
+     "wd": "Q5679783",
+     "n": "Antigua Universidad",
+     "txt": "Donde dio clases Antonio Machado."
+    },
+    {
+     "wd": "Q6058045",
+     "n": "Palacio de Jabalquinto",
+     "txt": "Fachada gótica isabelina de clavos y puntas."
+    },
+    {
+     "wd": "Q2942581",
+     "n": "Catedral",
+     "txt": "Renovada por Andrés de Vandelvira."
+    },
+    {
+     "wd": "Q5754603",
+     "n": "Ayuntamiento",
+     "txt": "Antigua Casa de la Justicia y cárcel, plateresca."
+    }
+   ]
+  }
+ ],
+ "ubeda": [
+  {
+   "id": "vandelvira",
+   "t": "La Úbeda de Vandelvira",
+   "d": "El conjunto renacentista de la plaza Vázquez de Molina.",
+   "stops": [
+    {
+     "wd": "Q9060920",
+     "n": "Plaza Vázquez de Molina",
+     "txt": "El gran conjunto renacentista de la ciudad."
+    },
+    {
+     "wd": "Q5690257",
+     "n": "El Salvador",
+     "txt": "Panteón de Francisco de los Cobos, de Siloé y Vandelvira."
+    },
+    {
+     "wd": "Q7944202",
+     "n": "Palacio de las Cadenas",
+     "txt": "De Vandelvira, hoy Ayuntamiento."
+    },
+    {
+     "wd": "Q5911869",
+     "n": "Santa María",
+     "txt": "Sobre la mezquita mayor, con claustro gótico.",
+     "at": [
+      -3.3681,
+      38.0078
+     ]
+    },
+    {
+     "wd": "Q6058558",
+     "n": "Palacio del Deán Ortega",
+     "txt": "Renacentista, hoy parador."
+    },
+    {
+     "wd": "Q5903116",
+     "n": "Hospital de Santiago",
+     "txt": "El «Escorial andaluz» de Vandelvira."
+    }
+   ]
+  }
+ ],
+ "caceres": [
+  {
+   "id": "monumental",
+   "t": "Cáceres monumental",
+   "d": "La ciudad medieval amurallada, intacta, de torres y palacios.",
+   "stops": [
+    {
+     "wd": "Q6079690",
+     "n": "Plaza Mayor",
+     "txt": "La plaza al pie de la muralla."
+    },
+    {
+     "wd": "Q5703166",
+     "n": "Arco de la Estrella",
+     "txt": "La entrada barroca a la ciudad vieja, de Manuel de Lara Churriguera."
+    },
+    {
+     "wd": "Q6150350",
+     "n": "Torre de Bujaco",
+     "txt": "Torre almohade de la muralla."
+    },
+    {
+     "wd": "Q2942653",
+     "n": "Santa María",
+     "txt": "Gótica, en la plaza de los palacios."
+    },
+    {
+     "wd": "Q5666264",
+     "n": "Golfines de Abajo",
+     "txt": "Uno de los palacios góticos más bellos de la ciudad."
+    },
+    {
+     "wd": "Q5910197",
+     "n": "San Francisco Javier",
+     "txt": "Iglesia barroca de los jesuitas."
+    },
+    {
+     "wd": "Q6058361",
+     "n": "Museo de Cáceres",
+     "txt": "Sobre el aljibe almohade."
+    }
+   ]
+  }
+ ],
+ "cuenca": [
+  {
+   "id": "colgadas",
+   "t": "Cuenca entre hoces",
+   "d": "La ciudad sobre el peñón entre el Júcar y el Huécar.",
+   "stops": [
+    {
+     "wd": "Q104542037",
+     "n": "Plaza Mayor",
+     "txt": "La plaza cerrada por el Ayuntamiento barroco."
+    },
+    {
+     "wd": "Q2942514",
+     "n": "Catedral",
+     "txt": "Uno de los primeros templos góticos de Castilla."
+    },
+    {
+     "wd": "Q2496001",
+     "n": "Casas Colgadas",
+     "txt": "Casas medievales sobre la hoz del Huécar; Museo de Arte Abstracto Español."
+    },
+    {
+     "wd": "Q9064435",
+     "n": "Puente de San Pablo",
+     "txt": "Pasarela de hierro de 1902 sobre la hoz."
+    },
+    {
+     "wd": "Q8350459",
+     "n": "Convento de San Pablo",
+     "txt": "Convento del siglo XVI al otro lado, hoy parador."
+    },
+    {
+     "wd": "Q3847961",
+     "n": "Torre de Mangana",
+     "txt": "Torre del reloj sobre la antigua alcazaba."
+    }
+   ]
+  }
+ ],
+ "ibiza": [
+  {
+   "id": "daltvila",
+   "t": "Dalt Vila",
+   "d": "La ciudad alta amurallada.",
+   "stops": [
+    {
+     "wd": "Q56293524",
+     "n": "Portal de ses Taules",
+     "txt": "La entrada principal a las murallas."
+    },
+    {
+     "wd": "Q15958616",
+     "n": "Dalt Vila",
+     "txt": "La ciudad alta dentro de las murallas renacentistas de Giovanni Battista Calvi (siglo XVI)."
+    },
+    {
+     "wd": "Q2942557",
+     "n": "Catedral",
+     "txt": "Catedral de Santa María de las Nieves, en lo alto de Dalt Vila."
+    },
+    {
+     "wd": "Q43142933",
+     "n": "Castillo",
+     "txt": "Castillo y almudaina en la cumbre."
+    },
+    {
+     "wd": "Q3346918",
+     "n": "Puig des Molins",
+     "txt": "Necrópolis fenicio-púnica."
+    }
+   ]
+  }
+ ],
+ "la-laguna": [
+  {
+   "id": "adelantado",
+   "t": "La Laguna, ciudad de Adelantado",
+   "d": "La primera ciudad colonial no amurallada.",
+   "stops": [
+    {
+     "wd": "Q6080385",
+     "n": "Plaza del Adelantado",
+     "txt": "La plaza mayor de la ciudad."
+    },
+    {
+     "wd": "Q3689605",
+     "n": "Santa Catalina",
+     "txt": "Convento de clausura con celosías de madera."
+    },
+    {
+     "wd": "Q6058132",
+     "n": "Palacio de Nava",
+     "txt": "Palacio del siglo XVI."
+    },
+    {
+     "wd": "Q34562",
+     "n": "Catedral",
+     "txt": "Catedral neogótica de 1913."
+    },
+    {
+     "wd": "Q1024943",
+     "n": "La Concepción",
+     "txt": "Iglesia más antigua de la isla, con torre del siglo XVII."
+    },
+    {
+     "wd": "Q43115678",
+     "n": "Casa de los Capitanes",
+     "txt": "Sede de la Capitanía General."
+    },
+    {
+     "wd": "Q5754529",
+     "n": "Casa Salazar",
+     "txt": "Palacio barroco, sede del Obispado."
+    }
+   ]
+  }
+ ],
+ "tarragona": [
+  {
+   "id": "tarraco",
+   "t": "Tarraco",
+   "d": "La capital de la Hispania Citerior.",
+   "stops": [
+    {
+     "wd": "Q17587683",
+     "n": "Balcó del Mediterrani",
+     "txt": "Mirador sobre el mar al final de la Rambla Nova."
+    },
+    {
+     "wd": "Q2746482",
+     "n": "Anfiteatro",
+     "txt": "Anfiteatro romano del siglo II, frente al mar."
+    },
+    {
+     "wd": "Q2629538",
+     "n": "Circo",
+     "txt": "Circo romano con galerías conservadas bajo la ciudad."
+    },
+    {
+     "wd": "Q57980303",
+     "n": "Pretorio",
+     "txt": "La torre romana, llamada de Pilatos."
+    },
+    {
+     "wd": "Q974716",
+     "n": "Catedral",
+     "txt": "Catedral entre el románico y el gótico."
+    },
+    {
+     "wd": "Q3121589",
+     "n": "Paseo Arqueológico",
+     "txt": "Las murallas romanas."
+    },
+    {
+     "wd": "Q4894543",
+     "n": "Foro de la Colonia",
+     "txt": "Foro romano con restos de columnas."
+    }
+   ]
+  }
+ ],
+ "san-sebastian": [
+  {
+   "id": "concha",
+   "t": "Donostia, de la Parte Vieja a la Concha",
+   "d": "La villa reconstruida tras 1813, el ensanche de la Belle Époque y la bahía.",
+   "stops": [
+    {
+     "wd": "Q2842138",
+     "n": "Santa María del Coro",
+     "txt": "Basílica barroca al pie del monte Urgull, frente a la catedral del Buen Pastor al otro extremo de la calle Mayor."
+    },
+    {
+     "wd": "Q12261586",
+     "n": "Plaza de la Constitución",
+     "txt": "La plaza porticada de la Parte Vieja, con los números de los antiguos palcos de la plaza de toros en los balcones."
+    },
+    {
+     "wd": "Q12266844",
+     "n": "San Vicente",
+     "txt": "La iglesia más antigua de la ciudad, gótica del siglo XVI."
+    },
+    {
+     "wd": "Q2030934",
+     "n": "Monte Urgull",
+     "txt": "El monte de la antigua plaza fuerte, con el castillo de la Mota y el Sagrado Corazón."
+    },
+    {
+     "wd": "Q2349872",
+     "n": "Kursaal",
+     "txt": "Los dos cubos de vidrio de Rafael Moneo (1999) en la desembocadura del Urumea."
+    },
+    {
+     "wd": "Q3114044",
+     "n": "Teatro Victoria Eugenia",
+     "txt": "Teatro de 1912, joya de la Belle Époque donostiarra."
+    },
+    {
+     "wd": "Q2942904",
+     "n": "Catedral del Buen Pastor",
+     "txt": "Catedral neogótica de 1897, centro del ensanche Cortázar."
+    },
+    {
+     "wd": "Q26252283",
+     "n": "Ayuntamiento",
+     "txt": "El antiguo Gran Casino de 1887, frente a los jardines de Alderdi Eder."
+    },
+    {
+     "wd": "Q2720154",
+     "n": "La Concha",
+     "txt": "La bahía y su barandilla, con la isla de Santa Clara en el centro."
+    },
+    {
+     "wd": "Q1187408",
+     "n": "Peine del Viento",
+     "txt": "Las esculturas de acero de Eduardo Chillida (1977) en las rocas al final de Ondarreta."
+    }
+   ]
+  }
  ]
 }

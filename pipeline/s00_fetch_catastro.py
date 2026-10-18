@@ -22,6 +22,8 @@ RAW = DATA / "raw/catastro"
 CHOSEN = DATA / "municipios.json"
 # Bizkaia's foral cadastre: one zip per municipality, named by the last three digits of the INE code
 FEED_BIZKAIA = "https://apli.bizkaia.eus/apps/Danok/INSPIRE/ES.BFA.BU.{n}.zip"
+# Gipuzkoa's: one zip for the whole province (35 MB, 1 GB of GML), updated weekly; s01 keeps the chosen municipality
+FEED_GIPUZKOA = "https://b5m.gipuzkoa.eus/inspire/download/GML/ES.GFA.BU.zip"
 
 
 def chosen() -> list[str]:
@@ -35,8 +37,8 @@ def fetch(code: str):
     name, folder = BY_CODE[code]
     zpath = RAW / f"{code}.zip"
     if not zpath.exists():
-        url = FEED_BIZKAIA.format(n=code[2:]) if REGION.cadastre == "bizkaia" else \
-            FEED.format(office=REGION.office, folder=quote(f"{code}-{folder}"), code=code)
+        url = FEED_BIZKAIA.format(n=code[2:]) if REGION.cadastre == "bizkaia" else FEED_GIPUZKOA \
+            if REGION.cadastre == "gipuzkoa" else FEED.format(office=REGION.office, folder=quote(f"{code}-{folder}"), code=code)
         print(f"  {name}: descargando…", flush=True)
         r = requests.get(url, timeout=600)
         r.raise_for_status()
