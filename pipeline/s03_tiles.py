@@ -112,6 +112,7 @@ def turismo(b, attrs):
     places = {}
     for k, r in enumerate(t.itertuples()):
         e = {key: val for key, val in dict(n=r.name, wd=r.wd, sl=int(r.sl), d=r.desc, wp=r.wp, img=r.img).items() if val}
+        e["score"] = float(r.score)
         if isinstance(r.ref, str) and r.ref:
             if r.ref not in gid.index:
                 continue
@@ -126,7 +127,7 @@ def turismo(b, attrs):
         places[r.wd] = e
     # one label per building: the best-known item on it
     seen, top = set(), []
-    for e in sorted(places.values(), key=lambda e: -e["sl"]):
+    for e in sorted(places.values(), key=lambda e: -e.pop("score")):
         if "g" in e and e["g"] in seen:
             continue
         seen.add(e.get("g", e["wd"]))

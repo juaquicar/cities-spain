@@ -11,6 +11,7 @@ empty), x, y (region frame), lon, lat. s03_tiles picks each site's share and wri
 import json
 import re
 from pathlib import Path
+from urllib.parse import unquote
 
 import geopandas as gpd
 import pandas as pd
@@ -31,6 +32,9 @@ NOT_A_PLACE = re.compile(
     r"sede|hotel|tienda|restaurante|centro comercial|hospital|cárcel|prisión|cuartel|base aérea|estación|parada|"
     r"empresa|marca|programa|serie|película|obra literaria|canción|álbum|juicio|proceso|ciudad deportiva|metro|"
     r"tranvía|red de|sistema de|servicio", re.I)
+# venues with many Wikipedias for their teams, not for the building: they count for less
+SPORT = re.compile(r"estadio|campo de fútbol|pabellón|palacio de deportes|arena|recinto deportivo|velódromo|hipódromo", re.I)
+SPORT_WEIGHT = 0.3
 # places a visitor walks to that are not buildings: they keep their own point
 OPEN_PLACE = re.compile(r"plaza|parque|jardín|puente|puerta|arco|fuente|mirador|paseo|alameda|glorieta|monumento|"
                         r"muralla|calle|playa|estanque|lago|acueducto|teatro romano|anfiteatro|yacimiento", re.I)
@@ -76,14 +80,17 @@ def main():
             continue
         types = v("types")
         # demolished (Wikidata end date), or a whole quarter: nothing to label on a roof
-        if qid not in stops and (v("end") or re.search(r"barrio|distrito|circuito", types)):
+        if qid not in stops and (v("end") or re.search(r"barrio|distrito|circuito", types)
+                                 or re.search(r"derribad|demolid|desaparecid", v("itemDescription"), re.I)):
             continue
         # a museum is also an "organización" and the Reina Sofía a "hospital clausurado": a place type wins
         placeish = BUILDING.search(types) or OPEN_PLACE.search(types) or "turístic" in types
         if qid not in stops and ((NOT_A_PLACE.search(types) and not placeish) or v("itemLabel") == qid):
             continue
-        items[qid] = dict(wd=qid, name=v("itemLabel"), desc=v("itemDescription"), sl=int(v("sl")),
-                          wp=v("art"), img=v("img").rsplit("/", 1)[-1].replace("%20", " "),
+        sl = int(v("sl"))
+        items[qid] = dict(wd=qid, name=re.sub(r"\s*\([^)]*\)$", "", v("itemLabel")), desc=v("itemDescription"), sl=sl,
+                          score=sl * (SPORT_WEIGHT if SPORT.search(types) else 1.0),
+                          wp=v("art"), img=unquote(v("img").rsplit("/", 1)[-1]),
                           open=bool(OPEN_PLACE.search(types)) and not BUILDING.search(types) or
                                (qid in stops and bool(re.search("barrio|judería", types))),  # a quarter on a walk
                           geometry=Point(map(float, pt[6:-1].split())))
@@ -103,7 +110,7 @@ def main():
     keep = hit.ref.notna() | hit.open | hit.wd.isin(stops)
     out = hit[keep].copy()
     out["x"], out["y"] = out.geometry.x, out.geometry.y
-    out = pd.DataFrame(out.drop(columns=["geometry", "open"])).sort_values("sl", ascending=False)
+    out = pd.DataFrame(out.drop(columns=["geometry", "open"])).sort_values("score", ascending=False)
     out.to_parquet(DATA / "turismo.parquet")
     print(f"{len(out)} lugares conocidos ({int(out.ref.notna().sum())} en un edificio); "
           f"rutas: {len(routes())}, paradas sin lugar: {sorted(stops - set(out.wd))}")
