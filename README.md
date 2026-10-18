@@ -58,6 +58,9 @@ uv run python -m pipeline.sites portal --deploy    # el portal, con los sitios q
 contornos simplificados para el mapa del selector y los ficheros que necesita cada uno. Cloudflare no sirve
 peticiones por rangos, así que `s03_tiles` deja las teselas, los packs y los tramos de `attrs*.bin` separados por
 municipio; el visor lee `#cargar=41093,41094&titulo=…` y descarga solo esos. Sin `cargar`, carga todo.
+Con muchas ciudades, las tarjetas se agrupan por comunidad autónoma y se filtran por etiqueta (columna `tags` de
+`PORTAL`): `#grandes` (más de 300.000 habitantes), `#patrimonio` (Grupo de Ciudades Patrimonio de la Humanidad) y
+`#costa` (costa e islas). El buscador encuentra ciudades, municipios y comunidades.
 
 ### Visor
 

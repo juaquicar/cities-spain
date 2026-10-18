@@ -35,21 +35,55 @@ $('totals').innerHTML = `<span>${fmt(cities.reduce((s, c) => s + c.buildings, 0)
   <span>${cities.length}</span> ${cities.length === 1 ? 'ciudad' : 'ciudades'} · <span>${nMunis}</span> municipios`;
 const svgOf = (c, cls = '') => `<svg viewBox="0 0 ${c.view[0]} ${c.view[1]}" class="${cls}" aria-hidden="true">${
   c.municipios.map(m => `<path d="${m.d}"/>`).join('')}</svg>`;
-$('cities').innerHTML = cities.map(c => {
+// cards grouped by autonomous community once there are many, biggest first inside each; the chips filter by tag
+const TAGS = [['grandes', 'grande', 'Grandes ciudades'], ['patrimonio', 'patrimonio', 'Ciudades Patrimonio'],
+  ['costa', 'costa', 'Costa e islas']].filter(([, t]) => cities.some(c => c.tags?.includes(t)));
+const GROUPED = cities.length >= 12;
+const byCcaa = new Map();
+for (const c of [...cities].sort((a, b) => (a.ccaa || '').localeCompare(b.ccaa || '', 'es') || b.buildings - a.buildings)) {
+  if (!byCcaa.has(c.ccaa)) byCcaa.set(c.ccaa, []);
+  byCcaa.get(c.ccaa).push(c);
+}
+const cardOf = c => {
   const all = weight(c, new Set(c.municipios.map(m => m.code)));
   const many = c.municipios.length > 1;
-  return `<button class="city" data-key="${c.key}">
+  return `<button class="city" data-key="${c.key}" data-tags="${(c.tags || []).join(' ')}">
     ${svgOf(c)}
     <div class="body">
-      <h2>${esc(c.name)}</h2>
-      <p class="sub">${esc(c.sub)}</p>
+      <h3>${esc(c.name)}</h3>
+      <p class="sub">${esc(GROUPED ? c.sub.split(' · ')[0] : c.sub)}${c.tags?.includes('patrimonio')
+        ? ' · <span class="badge" title="Grupo de Ciudades Patrimonio de la Humanidad de España">Patrimonio de la Humanidad</span>' : ''}</p>
       <p class="facts"><span><b>${fmt(c.buildings)}</b> edificios</span>
         ${many ? `<span><b>${c.municipios.length}</b> municipios</span>` : ''}
-        ${c.monuments ? `<span><b>${fmt(c.monuments)}</b> con ficha de patrimonio</span>` : ''}
-        <span>${mb(all)}${many ? ' en total' : ''}</span></p>
+        ${c.monuments ? `<span class="heritage"><b>${fmt(c.monuments)}</b> con ficha de patrimonio</span>` : ''}
+        <span class="size">${mb(all)}${many ? ' en total' : ''}</span></p>
       <span class="act">${many ? 'Elegir municipios →' : 'Abrir el mapa →'}</span>
     </div></button>`;
-}).join('');
+};
+$('cities').innerHTML = GROUPED
+  ? [...byCcaa].map(([ccaa, cs]) => `<h2 class="ccaa" data-ccaa="${esc(ccaa)}">${esc(ccaa)} <span>${cs.length}</span></h2>${cs.map(cardOf).join('')}`).join('')
+  : cities.map(cardOf).join('');
+let tag = '';
+const chips = $('chips');
+chips.hidden = !TAGS.length;
+chips.innerHTML = [['', '', 'Todas', cities.length], ...TAGS.map(([h, t, l]) => [h, t, l, cities.filter(c => c.tags?.includes(t)).length])]
+  .map(([h, , l, n]) => `<button data-h="${h}">${l} <span>${n}</span></button>`).join('');
+chips.onclick = e => {
+  const b = e.target.closest('button');
+  if (b) location.hash = b.dataset.h;
+};
+function setTag(h) {
+  tag = h;
+  const t = (TAGS.find(([k]) => k === h) || [])[1];
+  chips.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.h === h)));
+  $('cities').querySelectorAll('.city').forEach(b => { b.hidden = !!t && !b.dataset.tags.split(' ').includes(t); });
+  $('cities').querySelectorAll('.ccaa').forEach(hd => {
+    let el = hd.nextElementSibling, n = 0;
+    for (; el && el.classList.contains('city'); el = el.nextElementSibling) n += !el.hidden;
+    hd.hidden = !n;
+    hd.querySelector('span').textContent = n;
+  });
+}
 $('cities').onclick = e => {
   const b = e.target.closest('.city');
   if (!b) return;
@@ -65,10 +99,10 @@ q.oninput = () => {
   if (s.length < 2) { hits.hidden = true; return; }
   const found = [];
   for (const c of cities) {
-    if (plain(c.name).includes(s)) found.push({ c, label: c.name, where: c.sub });
+    if (plain(c.name).includes(s) || plain(c.ccaa || '').includes(s)) found.push({ c, label: c.name, where: c.sub });
     for (const m of c.municipios) if (c.municipios.length > 1 && plain(m.name).includes(s)) found.push({ c, m, label: m.name, where: c.name });
   }
-  hits.innerHTML = found.slice(0, 8).map((f, k) => `<li><button data-k="${k}"><span>${esc(f.label)}</span>
+  hits.innerHTML = found.slice(0, 10).map((f, k) => `<li><button data-k="${k}"><span>${esc(f.label)}</span>
     <span class="where">${esc(f.where)}${f.m ? ` · ${fmt(f.m.n)} edificios` : ''}</span></button></li>`).join('')
     || '<li class="muted" style="padding:8px 12px">Aún no está. Pronto habrá más ciudades.</li>';
   hits.hidden = false;
@@ -163,9 +197,9 @@ $('presets').onclick = e => {
 };
 $('filter').oninput = renderList;
 $('none').onclick = () => { chosen = new Set(); render(); };
-$('back').onclick = () => { location.hash = ''; };
+$('back').onclick = () => { location.hash = tag; };
 
-// ---------- Route: #<city key> opens its picker ----------
+// ---------- Route: #<city key> opens its picker, #grandes / #patrimonio / #costa filter the cards ----------
 // a map's "Cambiar municipios" comes back as #<key>&cargar=code,code… (or * for all of them), ticked as it was
 function route() {
   const [key, rest = ''] = location.hash.slice(1).split('&', 2);
@@ -176,7 +210,8 @@ function route() {
     if (codes.length) preselect = new Set(codes);
     history.replaceState(null, '', `#${c.key}`);
   }
-  if (c && c.municipios.length > 1) openPicker(c); else closePicker();
+  if (c && c.municipios.length > 1) openPicker(c);
+  else { closePicker(); if (!c) setTag(TAGS.some(([h]) => h === key) ? key : ''); }
 }
 addEventListener('hashchange', route);
 route();

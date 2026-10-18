@@ -42,6 +42,28 @@ SITES = [
     ("salamanca", None, None, None, None, "Salamanca", "salamanca"),
     ("zaragoza", None, None, None, None, "Zaragoza", "zaragoza"),
     ("bilbao", None, None, None, None, "Bilbao", "bilbao"),
+    ("malaga", None, None, None, None, "Málaga", "malaga"),
+    ("murcia", None, None, None, None, "Murcia", "murcia"),
+    ("palma", None, None, None, None, "Palma", "palma"),
+    ("las-palmas", None, None, None, None, "Las Palmas de Gran Canaria", "las-palmas"),
+    ("alicante", None, None, None, None, "Alicante", "alicante"),
+    ("granada", None, None, None, None, "Granada", "granada"),
+    ("benidorm", None, None, None, None, "Benidorm", "benidorm"),
+    ("san-sebastian", None, None, None, None, "San Sebastián", "san-sebastian"),
+    ("cordoba", None, None, None, None, "Córdoba", "cordoba"),
+    ("toledo", None, None, None, None, "Toledo", "toledo"),
+    ("santiago", None, None, None, None, "Santiago de Compostela", "santiago"),
+    ("segovia", None, None, None, None, "Segovia", "segovia"),
+    ("merida", None, None, None, None, "Mérida", "merida"),
+    ("avila", None, None, None, None, "Ávila", "avila"),
+    ("alcala-de-henares", None, None, None, None, "Alcalá de Henares", "alcala-de-henares"),
+    ("baeza", None, None, None, None, "Baeza", "baeza"),
+    ("caceres", None, None, None, None, "Cáceres", "caceres"),
+    ("cuenca", None, None, None, None, "Cuenca", "cuenca"),
+    ("ibiza", None, None, None, None, "Ibiza", "ibiza"),
+    ("la-laguna", None, None, None, None, "San Cristóbal de La Laguna", "la-laguna"),
+    ("tarragona", None, None, None, None, "Tarragona", "tarragona"),
+    ("ubeda", None, None, None, None, "Úbeda", "ubeda"),
 ]
 PORTAL_URL = "https://spain-cities.quijada.uk/"
 # old subdomains now served by the portal: site → its path there. The 301 carries no fragment unless the old site was
@@ -129,18 +151,42 @@ def canonical(page, url):
 
 
 # The portal (spain-cities.quijada.uk): one page listing every area, each area a built site in its own folder, and
-# nothing loads until the visitor has chosen. key, built site, name, line under it, ready-made selections.
+# nothing loads until the visitor has chosen. key, built site, name, kind, autonomous community, tags, ready-made
+# selections. Tags: grande (over 300.000 inhabitants), patrimonio (Grupo de Ciudades Patrimonio de la Humanidad de
+# España), costa (on the sea or on an island). The portal groups the cards by community and filters them by tag.
 PORTAL_DOMAIN, PORTAL_WORKER = "spain-cities.quijada.uk", "spain-cities"
 PORTAL = [
-    ("sevilla", "sevilla-provincia", "Sevilla", "Provincia · Andalucía",
+    ("sevilla", "sevilla-provincia", "Sevilla", "Provincia", "Andalucía", ["grande"],
      [("Sevilla capital", ["41900"]), ("Aljarafe", ALJARAFE), ("Sevilla y Aljarafe", ["41900", *ALJARAFE]),
       ("Toda la provincia", None)]),
-    ("madrid", "madrid", "Madrid", "Ciudad · Comunidad de Madrid", []),
-    ("barcelona", "barcelona", "Barcelona", "Ciudad · Cataluña", []),
-    ("valencia", "valencia", "Valencia", "Ciudad · Comunitat Valenciana", []),
-    ("zaragoza", "zaragoza", "Zaragoza", "Ciudad · Aragón", []),
-    ("bilbao", "bilbao", "Bilbao", "Ciudad · País Vasco", []),
-    ("salamanca", "salamanca", "Salamanca", "Ciudad · Castilla y León", []),
+    ("madrid", "madrid", "Madrid", "Ciudad", "Comunidad de Madrid", ["grande"], []),
+    ("barcelona", "barcelona", "Barcelona", "Ciudad", "Cataluña", ["grande", "costa"], []),
+    ("valencia", "valencia", "Valencia", "Ciudad", "Comunitat Valenciana", ["grande", "costa"], []),
+    ("zaragoza", "zaragoza", "Zaragoza", "Ciudad", "Aragón", ["grande"], []),
+    ("bilbao", "bilbao", "Bilbao", "Ciudad", "País Vasco", ["grande"], []),
+    ("salamanca", "salamanca", "Salamanca", "Ciudad", "Castilla y León", ["patrimonio"], []),
+    ("malaga", "malaga", "Málaga", "Ciudad", "Andalucía", ["grande", "costa"], []),
+    ("murcia", "murcia", "Murcia", "Ciudad", "Región de Murcia", ["grande"], []),
+    ("palma", "palma", "Palma", "Ciudad", "Illes Balears", ["grande", "costa"], []),
+    ("las-palmas", "las-palmas", "Las Palmas", "Ciudad", "Canarias", ["grande", "costa"], []),
+    ("alicante", "alicante", "Alicante", "Ciudad", "Comunitat Valenciana", ["grande", "costa"], []),
+    ("granada", "granada", "Granada", "Ciudad", "Andalucía", [], []),
+    ("benidorm", "benidorm", "Benidorm", "Ciudad", "Comunitat Valenciana", ["costa"], []),
+    ("san-sebastian", "san-sebastian", "San Sebastián", "Ciudad", "País Vasco", ["costa"], []),
+    ("cordoba", "cordoba", "Córdoba", "Ciudad", "Andalucía", ["grande", "patrimonio"], []),
+    ("toledo", "toledo", "Toledo", "Ciudad", "Castilla-La Mancha", ["patrimonio"], []),
+    ("santiago", "santiago", "Santiago de Compostela", "Ciudad", "Galicia", ["patrimonio"], []),
+    ("segovia", "segovia", "Segovia", "Ciudad", "Castilla y León", ["patrimonio"], []),
+    ("merida", "merida", "Mérida", "Ciudad", "Extremadura", ["patrimonio"], []),
+    ("avila", "avila", "Ávila", "Ciudad", "Castilla y León", ["patrimonio"], []),
+    ("alcala-de-henares", "alcala-de-henares", "Alcalá de Henares", "Ciudad", "Comunidad de Madrid", ["patrimonio"], []),
+    ("baeza", "baeza", "Baeza", "Ciudad", "Andalucía", ["patrimonio"], []),
+    ("caceres", "caceres", "Cáceres", "Ciudad", "Extremadura", ["patrimonio"], []),
+    ("cuenca", "cuenca", "Cuenca", "Ciudad", "Castilla-La Mancha", ["patrimonio"], []),
+    ("ibiza", "ibiza", "Ibiza", "Ciudad", "Illes Balears", ["patrimonio", "costa"], []),
+    ("la-laguna", "la-laguna", "La Laguna", "Ciudad", "Canarias", ["patrimonio", "costa"], []),
+    ("tarragona", "tarragona", "Tarragona", "Ciudad", "Cataluña", ["patrimonio", "costa"], []),
+    ("ubeda", "ubeda", "Úbeda", "Ciudad", "Andalucía", ["patrimonio"], []),
 ]
 
 
@@ -160,7 +206,7 @@ def portal(deploy=False):
     shutil.rmtree(out, ignore_errors=True)
     shutil.copytree("portal", out)
     cities = []
-    for key, site, name, sub, presets in PORTAL:
+    for key, site, name, kind, ccaa, tags, presets in PORTAL:
         src = Path("dist") / site
         if not (src / "data" / "city.json").exists():
             print(f"portal: falta dist/{site}; se omite", flush=True)
@@ -194,7 +240,7 @@ def portal(deploy=False):
                 packs=sorted({t["pack"] for t in c["tiles"] if t.get("muni", m["id"]) == m["id"]}),
                 parts=[p["file"] for p in parts if not p.get("munis") or m["id"] in p["munis"]],
                 d=outline(simple, scale, x0, z0)))
-        cities.append(dict(key=key, name=name, sub=sub, buildings=c["stats"]["buildings"],
+        cities.append(dict(key=key, name=name, sub=f"{kind} · {ccaa}", ccaa=ccaa, tags=tags, buildings=c["stats"]["buildings"],
                            monuments=c["stats"].get("monuments", 0), heritage=c.get("heritage", "iaph"),
                            years=[c["yearMin"], c["yearMax"]], base=base, files=files,
                            view=[round((x1 - x0) * scale), round((z1 - z0) * scale)],
@@ -221,6 +267,9 @@ def main():
         return portal(deploy)
     for name, codes, domain, worker, label, place, region in SITES:
         if args and name not in args:
+            continue
+        if region not in REGIONS or not (Path("data") / ("" if region == "sevilla" else region) / "web").is_dir():
+            print(f"{name}: sin datos de {region} todavía; se omite", flush=True)
             continue
         dist = build(name, codes, label, place, region, pages_only)
         if domain and name not in REDIRECT:
