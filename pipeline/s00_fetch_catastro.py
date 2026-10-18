@@ -20,6 +20,8 @@ from .region import DATA, REGION
 FEED = "https://www.catastro.hacienda.gob.es/INSPIRE/Buildings/{office}/{folder}/A.ES.SDGC.BU.{code}.zip"
 RAW = DATA / "raw/catastro"
 CHOSEN = DATA / "municipios.json"
+# Bizkaia's foral cadastre: one zip per municipality, named by the last three digits of the INE code
+FEED_BIZKAIA = "https://apli.bizkaia.eus/apps/Danok/INSPIRE/ES.BFA.BU.{n}.zip"
 
 
 def chosen() -> list[str]:
@@ -33,7 +35,8 @@ def fetch(code: str):
     name, folder = BY_CODE[code]
     zpath = RAW / f"{code}.zip"
     if not zpath.exists():
-        url = FEED.format(office=REGION.office, folder=quote(f"{code}-{folder}"), code=code)
+        url = FEED_BIZKAIA.format(n=code[2:]) if REGION.cadastre == "bizkaia" else \
+            FEED.format(office=REGION.office, folder=quote(f"{code}-{folder}"), code=code)
         print(f"  {name}: descargando…", flush=True)
         r = requests.get(url, timeout=600)
         r.raise_for_status()

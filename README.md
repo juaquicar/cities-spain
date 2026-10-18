@@ -1,17 +1,16 @@
 # Ciudades de España, edificio a edificio
 
-Cada edificio en pie de Sevilla (con el Aljarafe y el resto de la provincia), Madrid y Barcelona en 3D, coloreado por
+Cada edificio en pie de Sevilla (con el Aljarafe y el resto de la provincia), Madrid, Barcelona, Valencia, Zaragoza,
+Bilbao y Salamanca en 3D, coloreado por
 época de construcción, uso o número de plantas, con filtro por municipio. Pipeline en Python que alimenta un visor
 three.js sin build step.
 
 **Portal:** [spain-cities.quijada.uk](https://spain-cities.quijada.uk): todas las ciudades; antes de cargar nada se
 elige ciudad y, en las grandes, qué municipios, con el peso de la descarga a la vista.
 
-**Sitios sueltos:** [madrid.quijada.uk](https://madrid.quijada.uk) · [barcelona.quijada.uk](https://barcelona.quijada.uk) ·
-[sevilla-provincia.quijada.uk](https://sevilla-provincia.quijada.uk) ·
-[sevilla-aljarafe.quijada.uk](https://sevilla-aljarafe.quijada.uk) ·
-[sevilla.quijada.uk](https://sevilla.quijada.uk) · [aljarafe.quijada.uk](https://aljarafe.quijada.uk) ·
-[tomares.quijada.uk](https://tomares.quijada.uk)
+**Sitios sueltos:** [sevilla.quijada.uk](https://sevilla.quijada.uk) · [aljarafe.quijada.uk](https://aljarafe.quijada.uk).
+Los antiguos madrid, barcelona, tomares, sevilla-aljarafe y sevilla-provincia redirigen (301) a su sitio en el portal,
+con la selección de municipios que mostraban.
 
 ## Autor y créditos
 
@@ -33,7 +32,7 @@ Catastro INSPIRE + OSM ──► pipeline/ (Python) ──► web/data/ (teselas
 | `s01_load` | Building + BuildingPart → parquet, reproyectado a ETRS89 / UTM 30N |
 | `s02_attributes` | Años (marca los redondeados, estima los que faltan), plantas → altura, uso, época |
 | `s03_tiles` | Teselas de 600 m en packs, `attrs.bin` por edificio, `city.json` |
-| `s05_monumentos` | Patrimonio: IAPH (datos abiertos Junta) + Wikidata en Andalucía; solo Wikidata en Madrid y Barcelona |
+| `s05_monumentos` | Patrimonio: IAPH (datos abiertos Junta) + Wikidata en Andalucía; solo Wikidata en el resto |
 | `s04_ground` | Términos municipales y agua de OpenStreetMap (Overpass) |
 | `s06_terreno` | MDT 5 m del IGN (WCS): cota de cada edificio y malla de relieve |
 | `s07_lidar` | Alturas LiDAR (MDSnE2,5 del CNIG) si hay ficheros en `data/raw/lidar/`; si no, plantas × 3 m |
@@ -46,7 +45,7 @@ uv run python -m pipeline.build tomares            # primer municipio
 uv run python -m pipeline.build sevilla mairena    # añade más (se acumulan)
 uv run python -m pipeline.build todos              # los 106 municipios de la provincia
 REGION=madrid uv run python -m pipeline.build todos      # Madrid, en data/madrid/
-REGION=barcelona uv run python -m pipeline.build todos   # Barcelona, en data/barcelona/
+REGION=barcelona uv run python -m pipeline.build todos   # Barcelona, en data/barcelona/ (igual valencia, zaragoza, bilbao, salamanca)
 python3 -m http.server 8642 --directory web        # http://localhost:8642
 uv run python -m pipeline.sites --deploy           # publica los siete sitios (tras `npx wrangler login`; con varias cuentas, CLOUDFLARE_ACCOUNT_ID)
 uv run python -m pipeline.sites portal --deploy    # el portal, con los sitios que ya hay en dist/
@@ -73,14 +72,13 @@ imagen. Atajos: `1`–`4` modos, `Espacio` reproducir, `H`, `R`, `N`, `Esc`. Hit
 
 | Sitio | Municipios | Worker |
 |---|---|---|
-| https://tomares.quijada.uk | Tomares | `tomares` |
+| https://spain-cities.quijada.uk | Portal: Sevilla (provincia, con selecciones), Madrid, Barcelona, Valencia, Zaragoza, Bilbao, Salamanca | `spain-cities` |
 | https://sevilla.quijada.uk | Sevilla | `sevilla-edificios` |
 | https://aljarafe.quijada.uk | Los 31 del Aljarafe, sin la capital | `aljarafe` |
-| https://sevilla-aljarafe.quijada.uk | Sevilla + Aljarafe (32) | `sevilla-aljarafe` |
-| https://sevilla-provincia.quijada.uk | Toda la provincia (106) | `sevilla-provincia` |
-| https://madrid.quijada.uk | Madrid | `madrid-edificios` |
-| https://barcelona.quijada.uk | Barcelona | `barcelona-edificios` |
-| https://spain-cities.quijada.uk | Portal: Sevilla (provincia), Madrid, Barcelona | `spain-cities` |
+| tomares, sevilla-aljarafe, sevilla-provincia, madrid, barcelona .quijada.uk | 301 al portal (`REDIRECT` en sites.py) | los mismos |
+
+Bilbao sale del catastro foral de Bizkaia (INSPIRE propio, `cadastre="bizkaia"` en region.py): solo edificios, sin
+partes, con referencias de 17 caracteres. © Bizkaiko Foru Aldundia.
 
 ### Regiones
 

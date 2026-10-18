@@ -21,7 +21,7 @@ from .s00_fetch_catastro import chosen
 from .s03_tiles import OUT, to_local
 
 OVERPASS = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter",
-            "https://overpass.private.coffee/api/interpreter"]
+            "https://overpass.private.coffee/api/interpreter", "https://maps.mail.ru/osm/tools/overpass/api/interpreter"]
 # the Catastro numbers the capitals and the newest municipalities its own way; INE and OSM use these
 INE = REGION.ine
 CACHE = DATA / "raw/osm"
@@ -33,7 +33,7 @@ def overpass(query: str, name: str):
     CACHE.mkdir(parents=True, exist_ok=True)
     f = CACHE / f"{name}.json"
     if not f.exists():
-        for attempt in range(6):
+        for attempt in range(12):  # the public servers fail in bursts: keep trying for a few minutes
             url = OVERPASS[attempt % len(OVERPASS)]
             try:
                 r = requests.post(url, data={"data": query}, headers={"User-Agent": "sevilla-edificios/0.1"}, timeout=300)
@@ -41,7 +41,7 @@ def overpass(query: str, name: str):
                 break
             except requests.RequestException as e:
                 print(f"  overpass {url}: {e}; reintento", flush=True)
-                time.sleep(5 * (attempt + 1))
+                time.sleep(min(60, 5 * (attempt + 1)))
         else:
             raise SystemExit("Overpass no responde")
         f.write_text(r.text)

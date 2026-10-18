@@ -172,11 +172,12 @@ def main():
     flush()
 
     # Per-building table for the card, the filter and the histogram, in gid order.
-    attrs = np.zeros(len(b), dtype=[("ref", "S14"), ("muni", "u1"), ("use", "u1"), ("flag", "u1"), ("floors", "u1"),
+    refs = b.ref.str.encode("ascii")
+    attrs = np.zeros(len(b), dtype=[("ref", f"S{max(14, refs.str.len().max())}"), ("muni", "u1"), ("use", "u1"), ("flag", "u1"), ("floors", "u1"),
                                     ("below", "u1"), ("period", "u1"), ("year", "<i2"), ("dwell", "<u2"),
                                     ("h", "<u2"), ("area", "<u4"), ("x", "<f4"), ("z", "<f4"),
                                     ("lat", "<f4"), ("lon", "<f4"), ("ycat", "<i2"), ("mon", "u1"), ("hsrc", "u1"), ("base", "<f4")])
-    attrs["ref"] = b.ref.str.encode("ascii")
+    attrs["ref"] = refs
     for k in ("muni", "use", "floors", "below", "period", "year", "x", "z"):
         attrs[k] = b[k]
     attrs["flag"] = b.date_flag
@@ -242,7 +243,7 @@ def main():
     home = dict(cx=round(float((x0 + x1) / 2), 1), cz=round(float((z0 + z1) / 2), 1), span=float(max(x1 - x0, z1 - z0)))
     config = dict(
         city=REGION.key, label=os.environ.get("SITE_LABEL") or (munis[0]["name"] if len(munis) == 1 else REGION.label), tileSize=TILE, origin=ORIGIN,
-        heritage=REGION.heritage,
+        heritage=REGION.heritage, cadastre=REGION.cadastre, refLen=attrs.dtype["ref"].itemsize,
         home=dict(x=home["cx"], z=home["cz"], azimuth=200, elevation=40, span=min(home["span"] * 1.1, 160000)),
         periods=[dict(key=k, label=l, from_=a, to=bb, color=col) for k, l, a, bb, col in PERIODS],
         uses=[dict(label=l, color=c) for l, c in USES],

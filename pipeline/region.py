@@ -5,7 +5,7 @@
 
 Sevilla keeps its data in data/; any other region in data/<region>/. Each region has its own local frame (metres from
 a landmark, in the UTM zone it lies in), its Catastro territorial office, its municipalities and its heritage source:
-the IAPH in Andalucía, Wikidata elsewhere.
+the IAPH in Andalucía, Wikidata elsewhere. Bizkaia keeps its own (foral) cadastre, with its own INSPIRE feed.
 """
 import os
 from dataclasses import dataclass, field
@@ -25,6 +25,7 @@ class Region:
     ine: dict = field(default_factory=dict)   # Catastro code → INE code, where they differ
     municipios: tuple = ()        # (code, name, feed folder); empty = the Sevilla list in municipios.py
     lidar_year: int = 2015
+    cadastre: str = "dgc"         # "dgc" (Dirección General del Catastro) or "bizkaia" (Diputación Foral)
 
 
 REGIONS = {
@@ -37,6 +38,18 @@ REGIONS = {
     # Plaça de Catalunya; Barcelona lies in UTM zone 31
     "barcelona": Region("barcelona", 25831, (2.17000, 41.38700), "08", "41.30,2.04,41.48,2.24", "Barcelona",
                         "wikidata", "Q1492", ine={"08900": "08019"}, municipios=(("08900", "Barcelona", "BARCELONA"),)),
+    # Plaça de l'Ajuntament
+    "valencia": Region("valencia", 25830, (-0.37660, 39.46990), "46", "39.27,-0.56,39.60,-0.27", "Valencia",
+                       "wikidata", "Q8818", ine={"46900": "46250"}, municipios=(("46900", "Valencia", "VALENCIA"),)),
+    # Plaza Mayor
+    "salamanca": Region("salamanca", 25830, (-5.66390, 40.96500), "37", "40.90,-5.76,41.02,-5.58", "Salamanca",
+                        "wikidata", "Q15695", ine={"37900": "37274"}, municipios=(("37900", "Salamanca", "SALAMANCA"),)),
+    # Plaza del Pilar
+    "zaragoza": Region("zaragoza", 25830, (-0.87830, 41.65620), "50", "41.45,-1.20,41.95,-0.65", "Zaragoza",
+                       "wikidata", "Q10305", ine={"50900": "50297"}, municipios=(("50900", "Zaragoza", "ZARAGOZA"),)),
+    # Teatro Arriaga; the foral cadastre numbers municipalities as the INE does
+    "bilbao": Region("bilbao", 25830, (-2.92490, 43.25840), "48", "43.20,-3.00,43.30,-2.86", "Bilbao",
+                     "wikidata", "Q8692", municipios=(("48020", "Bilbao", "BILBAO"),), cadastre="bizkaia"),
 }
 
 REGION = REGIONS[os.environ.get("REGION", "sevilla")]
