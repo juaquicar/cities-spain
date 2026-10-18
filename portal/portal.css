@@ -62,8 +62,12 @@ h1 em { font-style: italic; font-weight: 500; color: var(--accent); }
 /* ---------- Map of Spain ---------- */
 :root, [data-theme="noche"] { --dot: #e5432f; --dot-edge: #fff; --land: #1f2b40; --near: #141c2a; }
 [data-theme="dia"] { --dot: #d3321f; --dot-edge: #fffcf6; --land: #e1d7c3; --near: #e9e2d4; }
-.hero > .spain { grid-column: 2; grid-row: 2 / span 7; align-self: center; margin: 18px 0 0; }
-.spain svg { display: block; width: 100%; height: auto; overflow: hidden; }
+.hero > .spain { grid-column: 2; grid-row: 2 / span 7; align-self: center; margin: 18px 0 0; position: relative; }
+.spain svg { display: block; width: 100%; height: auto; overflow: hidden; touch-action: pan-y; border-radius: 14px; cursor: grab; }
+.spain-zoom { position: absolute; right: 8px; top: 8px; display: flex; flex-direction: column; gap: 4px; z-index: 1; }
+.spain-zoom button { width: 30px; height: 30px; border-radius: 9px; border: 1px solid var(--edge); background: var(--card);
+  font-size: 18px; line-height: 1; cursor: pointer; box-shadow: var(--shadow); padding: 0; }
+.spain-zoom button:hover { border-color: var(--accent); }
 .spain .near { fill: var(--near); }
 .spain .ccaa-shape { fill: var(--land); stroke: var(--bg); stroke-width: 1.4; stroke-linejoin: round; }
 .spain .frame { fill: none; stroke: var(--edge); stroke-width: 1.5; }
@@ -71,8 +75,12 @@ h1 em { font-style: italic; font-weight: 500; color: var(--accent); }
 .spain .dot circle { fill: var(--dot); fill-opacity: .82; stroke: var(--dot-edge); stroke-width: 1.6; stroke-opacity: .85;
   transition: fill-opacity .15s, transform .15s; transform-box: fill-box; transform-origin: center; }
 .spain .dot:hover circle, .spain .dot:focus-visible circle { fill-opacity: 1; transform: scale(1.18); }
+.spain .dot.muni circle { fill-opacity: .7; stroke-width: .8; }
+.spain .dot text { display: none; }
+.spain .dot.named text, .spain svg.z2 .dot:not(.muni) text, .spain svg.z5 .dot.muni text { display: inline; }
 .spain .dot text { font: 700 25px "Manrope", sans-serif; fill: var(--ink); paint-order: stroke; stroke: var(--bg); stroke-width: 4px;
   stroke-linejoin: round; pointer-events: none; }
+.spain .dot.muni text { font-size: 16px; font-weight: 600; }
 .spain .dot.off { opacity: .18; }
 .spain figcaption { margin-top: 6px; font-size: 13px; min-height: 1.5em; text-align: center; }
 .spain figcaption b { color: var(--ink); }

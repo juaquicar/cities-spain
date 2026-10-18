@@ -84,6 +84,11 @@ CITIES = [
      "Q54898"),
     ("tarragona", 25831, 1.2445, 41.1189, "43900", "43148", "Tarragona", "TARRAGONA", "Q15088"),
     ("ubeda", 25830, -3.3705, 38.0133, "23092", "23092", "Úbeda", "UBEDA", "Q329984"),
+    # the rest of the Andalusian provincial capitals
+    ("almeria", 25830, -2.4637, 36.8402, "04900", "04013", "Almería", "ALMERIA", "Q10400"),
+    ("cadiz", 25829, -6.2926, 36.5298, "11900", "11012", "Cádiz", "CADIZ", "Q15682"),
+    ("huelva", 25829, -6.9447, 37.2614, "21900", "21041", "Huelva", "HUELVA", "Q12246"),
+    ("jaen", 25830, -3.7900, 37.7656, "23900", "23050", "Jaén", "JAEN", "Q15681"),
 ]
 # Gipuzkoa keeps its own foral cadastre too, in one INSPIRE file for the whole province
 REGIONS["san-sebastian"] = city("san-sebastian", 25830, -1.9812, 43.3183, "20069", "20069", "San Sebastián", "DONOSTIA",

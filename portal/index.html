@@ -32,8 +32,12 @@
   <ul id="hits" class="hits" hidden></ul>
   <div id="chips" class="chips" role="group" aria-label="Filtrar ciudades" hidden></div>
   <figure class="spain" id="spain-fig" hidden>
+    <div class="spain-zoom" role="group" aria-label="Zoom del mapa">
+      <button id="spain-in" aria-label="Acercar">+</button><button id="spain-out" aria-label="Alejar">−</button>
+      <button id="spain-reset" aria-label="Ver toda España" hidden>⤢</button>
+    </div>
     <svg id="spain" role="group" aria-label="Mapa de España: toca una ciudad para abrirla"></svg>
-    <figcaption id="spain-tip" class="muted">Toca un punto para abrir la ciudad. Su tamaño va con el número de edificios.</figcaption>
+    <figcaption id="spain-tip" class="muted">Toca un punto para abrir la ciudad; su tamaño va con el número de edificios. Acerca para ver los municipios.</figcaption>
   </figure>
 </header>
 

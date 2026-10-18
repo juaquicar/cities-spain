@@ -91,35 +91,116 @@ $('cities').onclick = e => {
 };
 
 // ---------- Map of Spain: a red dot per city, its area by the number of buildings ----------
+// A city of many municipalities (the province of Sevilla) is its capital's dot plus a small one per municipality.
+// Wheel, pinch or the buttons zoom; dragging pans once zoomed; dots and names keep their size on screen.
 const spain = await fetch('spain.json').then(r => r.json()).catch(() => null);
 const spainSvg = $('spain'), spainTip = $('spain-tip');
 const TIP = spainTip.textContent;
 const openCity = c => { if (c.municipios.length > 1) location.hash = c.key; else location.href = `${c.key}/`; };
 if (spain && cities.some(c => c.pt)) {
-  const most = Math.max(...cities.map(c => c.buildings));
-  const radius = c => 8 + 24 * Math.sqrt(c.buildings / most);
-  // the biggest names stay written; the rest show on hover or touch
-  const named = new Set([...cities].sort((a, b) => b.buildings - a.buildings).slice(0, 8).map(c => c.key));
+  // the dots: one per single-municipality city; the capital and the other municipalities of the larger areas
+  const dots = [];
+  for (const c of cities.filter(c => c.pt)) {
+    if (c.municipios.length === 1) { dots.push({ c, n: c.buildings, pt: c.pt, main: true }); continue; }
+    const capital = c.municipios.reduce((a, m) => (m.n > a.n ? m : a));
+    dots.push({ c, n: capital.n, pt: c.pt, main: true, m: capital });
+    for (const m of c.municipios) if (m !== capital && m.pt) dots.push({ c, n: m.n, pt: m.pt, m });
+  }
+  const most = Math.max(...dots.map(d => d.n));
+  const radius = d => (d.main ? 5 : 1.5) + 22 * Math.sqrt(d.n / most);
+  const named = new Set([...dots].filter(d => d.main).sort((a, b) => b.n - a.n).slice(0, 8).map(d => d.c.key));
+  dots.sort((a, b) => b.n - a.n);  // the big ones drawn first, so a small one on top of them can still be touched
   const [cx, cy, cw, ch] = spain.canarias;
-  const dots = cities.filter(c => c.pt).sort((a, b) => b.buildings - a.buildings);
   spainSvg.setAttribute('viewBox', `0 0 ${spain.w} ${spain.h}`);
   spainSvg.innerHTML = `<path class="near" d="${spain.context}"/>
     ${spain.ccaa.map(r => `<path class="ccaa-shape" d="${r.d}"/>`).join('')}
     <rect class="frame" x="${cx}" y="${cy}" width="${cw}" height="${ch}" rx="10"/>
-    ${dots.map(c => `<g class="dot" data-key="${c.key}" data-tags="${(c.tags || []).join(' ')}" tabindex="0" role="link"
-        aria-label="${esc(c.name)}, ${fmt(c.buildings)} edificios">
-      <circle cx="${c.pt[0]}" cy="${c.pt[1]}" r="${radius(c).toFixed(1)}"/>
-      ${named.has(c.key) ? `<text x="${c.pt[0] + radius(c) + 6}" y="${c.pt[1] + 9}">${esc(c.name)}</text>` : ''}
-      <title>${esc(c.name)} · ${fmt(c.buildings)} edificios</title></g>`).join('')}`;
+    ${dots.map((d, k) => {
+      const r = radius(d), label = d.main ? d.c.name : d.m.name;
+      return `<g class="dot${d.main ? '' : ' muni'}${named.has(d.c.key) && d.main ? ' named' : ''}" data-k="${k}"
+        data-tags="${(d.c.tags || []).join(' ')}" transform="translate(${d.pt[0]} ${d.pt[1]})" ${d.main ? 'tabindex="0" role="link"' : ''}
+        aria-label="${esc(label)}, ${fmt(d.n)} edificios"><circle r="${r.toFixed(2)}"/>
+        <text x="${(r + 6).toFixed(1)}" y="8">${esc(label)}</text></g>`;
+    }).join('')}`;
   $('spain-fig').hidden = false;
-  const dotOf = e => e.target.closest('.dot');
-  spainSvg.onclick = e => { const g = dotOf(e); if (g) openCity(cities.find(c => c.key === g.dataset.key)); };
-  spainSvg.onkeydown = e => { if (e.key === 'Enter') spainSvg.onclick(e); };
-  spainSvg.onmouseover = e => {
-    const g = dotOf(e), c = g && cities.find(c => c.key === g.dataset.key);
-    spainTip.innerHTML = c ? `<b>${esc(c.name)}</b> · ${fmt(c.buildings)} edificios · ${esc(c.sub)}` : TIP;
+  const dotOf = e => { const g = e.target.closest('.dot'); return g && dots[+g.dataset.k]; };
+  const tipOf = d => d.main
+    ? `<b>${esc(d.c.name)}</b> · ${fmt(d.c.buildings)} edificios · ${esc(d.c.sub)}`
+    : `<b>${esc(d.m.name)}</b> · ${fmt(d.n)} edificios · ${esc(d.c.name)}`;
+  let dragged = false;
+  spainSvg.onclick = e => {
+    if (dragged) return;
+    const d = dotOf(e);
+    if (!d) return;
+    if (d.main) openCity(d.c);
+    else { preselect = new Set([d.m.code]); location.hash = d.c.key; }
   };
+  spainSvg.onkeydown = e => { if (e.key === 'Enter') spainSvg.onclick(e); };
+  spainSvg.onmouseover = e => { const d = dotOf(e); spainTip.innerHTML = d ? tipOf(d) : TIP; };
   spainSvg.onmouseleave = () => { spainTip.textContent = TIP; };
+
+  // ----- zoom and pan, by the viewBox -----
+  const W = spain.w, H = spain.h, MAXK = 12;
+  let k = 1, vx = 0, vy = 0;
+  const groups = [...spainSvg.querySelectorAll('.dot')];
+  function apply() {
+    k = Math.min(MAXK, Math.max(1, k));
+    const w = W / k, h = H / k;
+    vx = Math.min(W - w, Math.max(0, vx)); vy = Math.min(H - h, Math.max(0, vy));
+    spainSvg.setAttribute('viewBox', `${vx} ${vy} ${w} ${h}`);
+    const s = 1 / Math.pow(k, 0.8);
+    groups.forEach(g => { const d = dots[+g.dataset.k]; g.setAttribute('transform', `translate(${d.pt[0]} ${d.pt[1]}) scale(${s})`); });
+    spainSvg.classList.toggle('z2', k >= 2.2);
+    spainSvg.classList.toggle('z5', k >= 6);
+    spainSvg.style.touchAction = k > 1 ? 'none' : 'pan-y';
+    $('spain-reset').hidden = k === 1;
+  }
+  // zoom by f around a point given in client pixels
+  function zoomAt(f, clientX, clientY) {
+    const r = spainSvg.getBoundingClientRect();
+    const px = vx + (clientX - r.left) / r.width * (W / k), py = vy + (clientY - r.top) / r.height * (H / k);
+    const k2 = Math.min(MAXK, Math.max(1, k * f));
+    vx = px - (px - vx) * k / k2; vy = py - (py - vy) * k / k2; k = k2;
+    apply();
+  }
+  const centre = () => { const r = spainSvg.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; };
+  $('spain-in').onclick = () => zoomAt(1.8, ...centre());
+  $('spain-out').onclick = () => zoomAt(1 / 1.8, ...centre());
+  $('spain-reset').onclick = () => { k = 1; vx = vy = 0; apply(); };
+  spainSvg.addEventListener('wheel', e => {
+    e.preventDefault();
+    zoomAt(Math.exp(-e.deltaY * (e.deltaMode ? 0.05 : 0.0018)), e.clientX, e.clientY);
+  }, { passive: false });
+  const pts = new Map();
+  let last = null;
+  spainSvg.addEventListener('pointerdown', e => {
+    pts.set(e.pointerId, [e.clientX, e.clientY]);
+    dragged = false; last = null;
+  });
+  spainSvg.addEventListener('pointermove', e => {
+    if (!pts.has(e.pointerId)) return;
+    const prev = pts.get(e.pointerId);
+    pts.set(e.pointerId, [e.clientX, e.clientY]);
+    const r = spainSvg.getBoundingClientRect();
+    if (pts.size === 2) {
+      const [a, b] = [...pts.values()], dist = Math.hypot(a[0] - b[0], a[1] - b[1]);
+      if (last) zoomAt(dist / last, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2);
+      last = dist; dragged = true;
+    } else if (pts.size === 1 && k > 1) {
+      const dx = e.clientX - prev[0], dy = e.clientY - prev[1];
+      if (Math.abs(dx) + Math.abs(dy) > 0) {
+        if (!dragged && Math.hypot(dx, dy) < 2) return;
+        dragged = true;
+        spainSvg.setPointerCapture?.(e.pointerId);
+        vx -= dx / r.width * (W / k); vy -= dy / r.height * (H / k);
+        apply();
+      }
+    }
+  });
+  const up = e => { pts.delete(e.pointerId); if (pts.size < 2) last = null; };
+  spainSvg.addEventListener('pointerup', up);
+  spainSvg.addEventListener('pointercancel', up);
+  apply();
 }
 
 // ---------- Search: cities and municipalities ----------

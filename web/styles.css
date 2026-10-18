@@ -128,6 +128,11 @@ h1.long { font-size: clamp(25px, 2.5vw, 32px); }
 .tools button:hover { background: var(--faint); }
 .tools button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
 .tools svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.tools .compass svg { width: 24px; height: 24px; stroke-width: 1.2; }
+.compass circle { stroke: var(--muted); }
+.compass #needle { transform-origin: 12px 12px; }
+.compass .n { fill: #e5432f; stroke: none; }
+.compass .s { fill: var(--muted); stroke: none; }
 
 .find { position: fixed; right: var(--gutter); top: calc(env(safe-area-inset-top, 0px) + var(--gutter) + 148px); }
 .find input { width: 214px; border: 1px solid var(--edge); background: var(--glass); border-radius: 10px; padding: 7px 12px;

@@ -65,6 +65,10 @@ SITES = [
     ("la-laguna", None, None, None, None, "San Cristóbal de La Laguna", "la-laguna"),
     ("tarragona", None, None, None, None, "Tarragona", "tarragona"),
     ("ubeda", None, None, None, None, "Úbeda", "ubeda"),
+    ("almeria", None, None, None, None, "Almería", "almeria"),
+    ("cadiz", None, None, None, None, "Cádiz", "cadiz"),
+    ("huelva", None, None, None, None, "Huelva", "huelva"),
+    ("jaen", None, None, None, None, "Jaén", "jaen"),
 ]
 PORTAL_URL = "https://spain-cities.quijada.uk/"
 # old subdomains now served by the portal: site → its path there. The 301 carries no fragment unless the old site was
@@ -188,6 +192,10 @@ PORTAL = [
     ("la-laguna", "la-laguna", "La Laguna", "Ciudad", "Canarias", ["patrimonio", "costa"], []),
     ("tarragona", "tarragona", "Tarragona", "Ciudad", "Cataluña", ["patrimonio", "costa"], []),
     ("ubeda", "ubeda", "Úbeda", "Ciudad", "Andalucía", ["patrimonio"], []),
+    ("almeria", "almeria", "Almería", "Ciudad", "Andalucía", ["costa"], []),
+    ("cadiz", "cadiz", "Cádiz", "Ciudad", "Andalucía", ["costa"], []),
+    ("huelva", "huelva", "Huelva", "Ciudad", "Andalucía", ["costa"], []),
+    ("jaen", "jaen", "Jaén", "Ciudad", "Andalucía", [], []),
 ]
 
 
@@ -228,16 +236,34 @@ def portal(deploy=False):
         x0, x1, z0, z1 = (min(xs), max(xs), min(zs), max(zs)) if xs else (0, 1, 0, 1)
         scale = 400 / max(x1 - x0, z1 - z0)
         tol = max(x1 - x0, z1 - z0) / 900
+        # each municipality's dot on the map of Spain, at the centre of its boundary (local frame → lon/lat)
+        reg = REGIONS.get(key)
+        if reg:
+            from pyproj import Transformer
+            from shapely.geometry import Polygon as P
+            e0, n0 = Transformer.from_crs(4326, reg.crs, always_xy=True).transform(*reg.landmark)
+            back = Transformer.from_crs(reg.crs, 4326, always_xy=True)
+
+            def centre(mid):
+                polys = [P(list(zip(poly[0][0::2], poly[0][1::2]))) for poly in rings.get(mid, [])]
+                polys = [g for g in polys if g.is_valid and g.area > 0]
+                if not polys:
+                    return None
+                g = max(polys, key=lambda g: g.area).representative_point()
+                return spain_map.project(*back.transform(g.x + e0, n0 - g.y))
         munis = []
         for m in c["municipios"]:
             simple = []
             for poly in rings.get(m["id"], []):
                 r = poly[0]
-                g = Polygon(list(zip(r[0::2], r[1::2]))).simplify(tol)
-                if not g.is_empty and g.geom_type == "Polygon":
-                    simple.append([[v for xy in g.exterior.coords for v in xy]])
+                # a self-touching boundary (Almería's) is mended first, or simplifying it loses the whole ring
+                g = Polygon(list(zip(r[0::2], r[1::2]))).buffer(0).simplify(tol)
+                for part in getattr(g, "geoms", [g]):
+                    if not part.is_empty and part.geom_type == "Polygon":
+                        simple.append([[v for xy in part.exterior.coords for v in xy]])
             munis.append(dict(
                 code=m["code"], name=m["name"], n=m["n"], id=m["id"],
+                pt=centre(m["id"]) if reg and len(c["municipios"]) > 1 else None,
                 packs=sorted({t["pack"] for t in c["tiles"] if t.get("muni", m["id"]) == m["id"]}),
                 parts=[p["file"] for p in parts if not p.get("munis") or m["id"] in p["munis"]],
                 d=outline(simple, scale, x0, z0)))

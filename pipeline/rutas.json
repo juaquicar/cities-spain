@@ -1619,5 +1619,171 @@
     }
    ]
   }
+ ],
+ "almeria": [
+  {
+   "id": "alcazaba",
+   "t": "Almería, de la Alcazaba al Paseo",
+   "d": "La medina de Al-Mariyya, la catedral fortaleza y la ciudad del XIX.",
+   "stops": [
+    {
+     "wd": "Q24024872",
+     "n": "Alcazaba",
+     "txt": "Fortaleza del califato de Córdoba, del siglo X, la mayor que construyeron los musulmanes en al-Ándalus."
+    },
+    {
+     "wd": "Q2380092",
+     "n": "Catedral",
+     "txt": "Catedral fortaleza del siglo XVI, con almenas contra los ataques berberiscos."
+    },
+    {
+     "wd": "Q6080175",
+     "n": "Plaza Vieja",
+     "txt": "Plaza porticada con el Ayuntamiento, en el corazón del casco antiguo."
+    },
+    {
+     "wd": "Q4733799",
+     "n": "Refugios antiaéreos",
+     "txt": "Cuatro kilómetros de galerías bajo el centro, de la Guerra Civil."
+    },
+    {
+     "wd": "Q6065612",
+     "n": "Paseo de Almería",
+     "txt": "El paseo burgués del XIX, abierto tras el derribo de la muralla."
+    },
+    {
+     "wd": "Q8254482",
+     "n": "Cable Inglés",
+     "txt": "Cargadero de mineral de hierro de 1904, junto al puerto."
+    }
+   ]
+  }
+ ],
+ "cadiz": [
+  {
+   "id": "tacita",
+   "t": "La Tacita de Plata",
+   "d": "La ciudad de 1812 sobre su isla: catedral, torres miradores y el Atlántico.",
+   "stops": [
+    {
+     "wd": "Q650007",
+     "n": "Catedral",
+     "txt": "La catedral nueva, barroca y neoclásica, pagada con el comercio de Indias; cúpula dorada sobre el mar."
+    },
+    {
+     "wd": "Q1526659",
+     "n": "Teatro romano",
+     "txt": "Uno de los mayores de Hispania, del siglo I a. C., descubierto en 1980."
+    },
+    {
+     "wd": "Q9088848",
+     "n": "Torre Tavira",
+     "txt": "La torre vigía más alta de la ciudad, con cámara oscura."
+    },
+    {
+     "wd": "Q97616611",
+     "n": "Mercado Central",
+     "txt": "El primer mercado cubierto de España, de 1838."
+    },
+    {
+     "wd": "Q3896772",
+     "n": "Oratorio de San Felipe Neri",
+     "txt": "Aquí se reunieron las Cortes que aprobaron la Constitución de 1812."
+    },
+    {
+     "wd": "Q5594070",
+     "n": "Gran Teatro Falla",
+     "txt": "Teatro neomudéjar de ladrillo rojo, escenario del concurso del Carnaval."
+    },
+    {
+     "wd": "Q24022072",
+     "n": "La Caleta",
+     "txt": "La playa entre los castillos de San Sebastián y Santa Catalina."
+    },
+    {
+     "wd": "Q5050414",
+     "n": "Castillo de San Sebastián",
+     "txt": "Fortaleza sobre un islote unido por un paseo, al final de La Caleta."
+    }
+   ]
+  }
+ ],
+ "huelva": [
+  {
+   "id": "ingles",
+   "t": "La Huelva inglesa",
+   "d": "La ciudad que transformó la Compañía de Riotinto y el puerto de los descubrimientos.",
+   "stops": [
+    {
+     "wd": "Q6025796",
+     "n": "Muelle del Tinto",
+     "txt": "Cargadero de mineral de 1876 sobre la ría, de hierro y madera."
+    },
+    {
+     "wd": "Q5754163",
+     "n": "Casa Colón",
+     "txt": "El Gran Hotel Colón, construido por los ingleses para el IV Centenario de 1892."
+    },
+    {
+     "wd": "Q97628265",
+     "n": "Barrio Obrero",
+     "txt": "Barrio de estilo inglés que construyó la Compañía de Riotinto para sus empleados."
+    },
+    {
+     "wd": "Q2942684",
+     "n": "Catedral de la Merced",
+     "txt": "Antiguo convento mercedario del siglo XVII, catedral desde 1953."
+    },
+    {
+     "wd": "Q6063493",
+     "n": "San Pedro",
+     "txt": "La iglesia más antigua, sobre la mezquita, en lo alto del cabezo."
+    },
+    {
+     "wd": "Q6080255",
+     "n": "Plaza de las Monjas",
+     "txt": "La plaza central, con la estatua de Colón."
+    }
+   ]
+  }
+ ],
+ "jaen": [
+  {
+   "id": "santo-reino",
+   "t": "Jaén, del castillo a la catedral",
+   "d": "La catedral de Vandelvira, los baños árabes y el castillo de Santa Catalina.",
+   "stops": [
+    {
+     "wd": "Q425898",
+     "n": "Catedral",
+     "txt": "Obra cumbre de Andrés de Vandelvira, modelo de las catedrales de América."
+    },
+    {
+     "wd": "Q97630762",
+     "n": "Baños árabes",
+     "txt": "Bajo el palacio de Villardompardo, los mayores baños árabes conservados en España."
+    },
+    {
+     "wd": "Q5911743",
+     "n": "La Magdalena",
+     "txt": "Iglesia gótica sobre la mezquita, de la que conserva el patio de las abluciones."
+    },
+    {
+     "wd": "Q3896902",
+     "n": "Arco de San Lorenzo",
+     "txt": "Resto mudéjar de una iglesia desaparecida."
+    },
+    {
+     "wd": "Q6102062",
+     "n": "Santa Clara",
+     "txt": "El convento más antiguo de la ciudad, del siglo XIII."
+    },
+    {
+     "wd": "Q5050416",
+     "n": "Castillo de Santa Catalina",
+     "txt": "Alcázar musulmán y castillo cristiano en el cerro sobre la ciudad, hoy parador."
+    }
+   ]
+  }
  ]
 }

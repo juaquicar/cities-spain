@@ -528,6 +528,10 @@ const MILESTONES = {
   'la-laguna': [[1496, 'Fundación'], [1913, 'Catedral'], [1999, 'Patrimonio de la Humanidad']],
   tarragona: [[1171, 'Catedral'], [2000, 'Patrimonio de la Humanidad']],
   ubeda: [[1536, 'Capilla del Salvador'], [2003, 'Patrimonio de la Humanidad']],
+  almeria: [[1855, 'Derribo de la muralla'], [1904, 'Cable Inglés'], [2005, 'Juegos del Mediterráneo']],
+  cadiz: [[1812, 'Constitución de 1812'], [1947, 'Explosión de Cádiz'], [2012, 'Bicentenario']],
+  huelva: [[1873, 'Compañía de Riotinto'], [1964, 'Polo Químico'], [1992, 'V Centenario']],
+  jaen: [[1724, 'Catedral consagrada'], [1936, 'Guerra civil'], [2008, 'Fin de la burbuja']],
 }[config.city] || [];
 const hist = document.getElementById('hist'), hctx = hist.getContext('2d');
 const yMin = config.yearMin < OLD ? config.yearMin : Math.floor(config.yearMin / 10) * 10, yMax = config.yearMax;
@@ -668,7 +672,29 @@ function stepFlight(now) {
   camera.position.lerpVectors(flight.from.position, flight.to.position, e);
   if (t >= 1) flight = null;
 }
-controls.addEventListener('start', () => { flight = null; });
+controls.addEventListener('start', () => { flight = null; turn = null; });
+
+// ---------- Compass: the needle follows the view; a press turns the view round to the north ----------
+// north is -z in the local frame; the azimuth is that of the camera seen from the target (0 = camera to the south)
+const needle = document.getElementById('needle');
+const azimuth = () => Math.atan2(camera.position.x - controls.target.x, camera.position.z - controls.target.z);
+let turn = null, lastAz = Infinity;
+function stepTurn(now) {
+  if (turn) {
+    const t = Math.min(1, (now - turn.t0) / turn.ms), e = 1 - Math.pow(1 - t, 3);
+    const a = turn.from * (1 - e), off = camera.position.clone().sub(controls.target);
+    const r = Math.hypot(off.x, off.z);
+    camera.position.set(controls.target.x + r * Math.sin(a), camera.position.y, controls.target.z + r * Math.cos(a));
+    if (t >= 1) turn = null;
+  }
+  const az = azimuth();
+  if (Math.abs(az - lastAz) > 1e-3) { lastAz = az; needle.style.transform = `rotate(${THREE.MathUtils.radToDeg(az)}deg)`; }
+}
+document.getElementById('t-north').onclick = () => {
+  setOrbit(false); flight = null;
+  const a = azimuth();
+  if (Math.abs(a) > 1e-3) turn = { t0: performance.now(), ms: 300 + 500 * Math.abs(a) / Math.PI, from: a };
+};
 
 // ---------- Card ----------
 const card = document.getElementById('card');
@@ -1215,6 +1241,7 @@ renderer.setAnimationLoop(now => {
   uniforms.uNow.value = now / 1000;
   stepPlay(now);
   stepFlight(now);
+  stepTurn(now);
   controls.update();
   const d = camera.position.distanceTo(controls.target);
   uniforms.uFog.value.set(d * 1.6, d * 4.5);
