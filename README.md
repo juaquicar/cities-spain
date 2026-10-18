@@ -7,7 +7,9 @@ Granada, Córdoba, Toledo, Santiago, San Sebastián, Palma, Las Palmas…), colo
 three.js sin build step.
 
 **Portal:** [spain-cities.quijada.uk](https://spain-cities.quijada.uk): todas las ciudades; antes de cargar nada se
-elige ciudad y, en las grandes, qué municipios, con el peso de la descarga a la vista.
+elige ciudad (en el buscador, en las tarjetas o en el mapa de España, con un punto por ciudad según su número de
+edificios) y, en las grandes, qué municipios, con el peso de la descarga a la vista. El mapa base sale de Natural Earth
+(`pipeline/spain_map.py` escribe `portal/spain.json`).
 
 **Sitios sueltos:** [sevilla.quijada.uk](https://sevilla.quijada.uk) · [aljarafe.quijada.uk](https://aljarafe.quijada.uk).
 Los antiguos madrid, barcelona, tomares, sevilla-aljarafe y sevilla-provincia redirigen (301) a su sitio en el portal,

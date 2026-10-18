@@ -22,6 +22,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from . import spain_map
 from .municipios import ALJARAFE
 from .region import REGIONS
 
@@ -240,7 +241,9 @@ def portal(deploy=False):
                 packs=sorted({t["pack"] for t in c["tiles"] if t.get("muni", m["id"]) == m["id"]}),
                 parts=[p["file"] for p in parts if not p.get("munis") or m["id"] in p["munis"]],
                 d=outline(simple, scale, x0, z0)))
-        cities.append(dict(key=key, name=name, sub=f"{kind} · {ccaa}", ccaa=ccaa, tags=tags, buildings=c["stats"]["buildings"],
+        # its dot on the map of Spain, at the region's landmark
+        pt = spain_map.project(*REGIONS[key].landmark) if key in REGIONS else None
+        cities.append(dict(key=key, name=name, sub=f"{kind} · {ccaa}", ccaa=ccaa, tags=tags, buildings=c["stats"]["buildings"], pt=pt,
                            monuments=c["stats"].get("monuments", 0), heritage=c.get("heritage", "iaph"),
                            years=[c["yearMin"], c["yearMax"]], base=base, files=files,
                            view=[round((x1 - x0) * scale), round((z1 - z0) * scale)],

@@ -77,6 +77,7 @@ function setTag(h) {
   const t = (TAGS.find(([k]) => k === h) || [])[1];
   chips.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.h === h)));
   $('cities').querySelectorAll('.city').forEach(b => { b.hidden = !!t && !b.dataset.tags.split(' ').includes(t); });
+  document.querySelectorAll('#spain .dot').forEach(g => g.classList.toggle('off', !!t && !g.dataset.tags.split(' ').includes(t)));
   $('cities').querySelectorAll('.ccaa').forEach(hd => {
     let el = hd.nextElementSibling, n = 0;
     for (; el && el.classList.contains('city'); el = el.nextElementSibling) n += !el.hidden;
@@ -86,11 +87,40 @@ function setTag(h) {
 }
 $('cities').onclick = e => {
   const b = e.target.closest('.city');
-  if (!b) return;
-  const c = cities.find(c => c.key === b.dataset.key);
-  if (c.municipios.length > 1) location.hash = c.key;
-  else location.href = `${c.key}/`;
+  if (b) openCity(cities.find(c => c.key === b.dataset.key));
 };
+
+// ---------- Map of Spain: a red dot per city, its area by the number of buildings ----------
+const spain = await fetch('spain.json').then(r => r.json()).catch(() => null);
+const spainSvg = $('spain'), spainTip = $('spain-tip');
+const TIP = spainTip.textContent;
+const openCity = c => { if (c.municipios.length > 1) location.hash = c.key; else location.href = `${c.key}/`; };
+if (spain && cities.some(c => c.pt)) {
+  const most = Math.max(...cities.map(c => c.buildings));
+  const radius = c => 8 + 24 * Math.sqrt(c.buildings / most);
+  // the biggest names stay written; the rest show on hover or touch
+  const named = new Set([...cities].sort((a, b) => b.buildings - a.buildings).slice(0, 8).map(c => c.key));
+  const [cx, cy, cw, ch] = spain.canarias;
+  const dots = cities.filter(c => c.pt).sort((a, b) => b.buildings - a.buildings);
+  spainSvg.setAttribute('viewBox', `0 0 ${spain.w} ${spain.h}`);
+  spainSvg.innerHTML = `<path class="near" d="${spain.context}"/>
+    ${spain.ccaa.map(r => `<path class="ccaa-shape" d="${r.d}"/>`).join('')}
+    <rect class="frame" x="${cx}" y="${cy}" width="${cw}" height="${ch}" rx="10"/>
+    ${dots.map(c => `<g class="dot" data-key="${c.key}" data-tags="${(c.tags || []).join(' ')}" tabindex="0" role="link"
+        aria-label="${esc(c.name)}, ${fmt(c.buildings)} edificios">
+      <circle cx="${c.pt[0]}" cy="${c.pt[1]}" r="${radius(c).toFixed(1)}"/>
+      ${named.has(c.key) ? `<text x="${c.pt[0] + radius(c) + 6}" y="${c.pt[1] + 9}">${esc(c.name)}</text>` : ''}
+      <title>${esc(c.name)} · ${fmt(c.buildings)} edificios</title></g>`).join('')}`;
+  $('spain-fig').hidden = false;
+  const dotOf = e => e.target.closest('.dot');
+  spainSvg.onclick = e => { const g = dotOf(e); if (g) openCity(cities.find(c => c.key === g.dataset.key)); };
+  spainSvg.onkeydown = e => { if (e.key === 'Enter') spainSvg.onclick(e); };
+  spainSvg.onmouseover = e => {
+    const g = dotOf(e), c = g && cities.find(c => c.key === g.dataset.key);
+    spainTip.innerHTML = c ? `<b>${esc(c.name)}</b> · ${fmt(c.buildings)} edificios · ${esc(c.sub)}` : TIP;
+  };
+  spainSvg.onmouseleave = () => { spainTip.textContent = TIP; };
+}
 
 // ---------- Search: cities and municipalities ----------
 const q = $('q'), hits = $('hits');
