@@ -248,6 +248,7 @@ const uniforms = {
   uSelected: { value: -1 },
   uFogColor: { value: col(SKY) },
   uFog: { value: new THREE.Vector2(9000 * FOG, 26000 * FOG) },
+  uAlpha: { value: 1 }, // below 1 only over the camera (see-through 3D)
 };
 
 const VERT = /* glsl */`
@@ -322,6 +323,7 @@ const FRAG = /* glsl */`
   precision highp float;
   uniform vec3 uFogColor;
   uniform vec2 uFog;
+  uniform float uAlpha;
   in vec3 vColor;
   in vec3 vWorld;
   in float vGid;
@@ -340,7 +342,7 @@ const FRAG = /* glsl */`
       vec3 c = vColor * light * foot;
       float d = length(vWorld - cameraPosition);
       c = mix(c, uFogColor, smoothstep(uFog.x, uFog.y, d));
-      outColor = vec4(c, 1.0);
+      outColor = vec4(c, uAlpha);
     #endif
   }
 `;
@@ -404,16 +406,18 @@ const pickPixel = new Uint8Array(4);
 function pick(x, y) {
   const w = renderer.domElement.clientWidth, h = renderer.domElement.clientHeight;
   camera.setViewOffset(w, h, x, y, 1, 1);
-  for (const m of meshes) m.material = m.userData.pick;
+  for (const m of meshes) { m.material = m.userData.pick; m.visible = true; }
   flat.visible = false;
+  if (arDots) arDots.visible = false;
   renderer.setRenderTarget(pickTarget);
   renderer.setClearColor(0x000000, 0);
   renderer.clear();
   renderer.render(scene, camera);
   renderer.readRenderTargetPixels(pickTarget, 0, 0, 1, 1, pickPixel);
   renderer.setRenderTarget(null);
-  flat.visible = true;
-  for (const m of meshes) m.material = m.userData.draw;
+  flat.visible = !ar || !ar.stream;
+  for (const m of meshes) { m.material = m.userData.draw; m.visible = !ar || ar.solid; }
+  if (arDots) arDots.visible = !!ar?.dots;
   camera.clearViewOffset();
   return pickPixel[0] + pickPixel[1] * 256 + pickPixel[2] * 65536 - 1;
 }
@@ -1190,7 +1194,7 @@ const arBtn = document.getElementById('g-ar'), arStart = document.getElementById
 const arBox = document.getElementById('ar'), arVideo = document.getElementById('ar-video');
 const arStatus = document.getElementById('ar-status'), arLook = document.getElementById('ar-look');
 const arTags = document.getElementById('ar-tags'), arArrow = document.getElementById('ar-arrow');
-const arGhostBtn = document.getElementById('ar-ghost'), arHint = document.getElementById('ar-hint');
+const arSolidBtn = document.getElementById('ar-solid'), arDotsBtn = document.getElementById('ar-dots'), arHint = document.getElementById('ar-hint');
 const AR_HASH = new URLSearchParams(location.hash.slice(1)).get('ar');
 const CAN_AR = !!navigator.mediaDevices?.getUserMedia && 'DeviceOrientationEvent' in window && matchMedia('(pointer: coarse)').matches;
 arBtn.hidden = !CAN_AR && !AR_HASH;
@@ -1337,11 +1341,68 @@ function arFov() {
   camera.fov = 2 * r2d(Math.atan(H / 2 / f));
   camera.updateProjectionMatrix();
 }
-function setGhost(on) {
-  ar.ghost = on;
-  arGhostBtn.setAttribute('aria-pressed', String(on));
-  canvas.style.opacity = on ? (ar.stream ? '0.5' : '1') : '';
-  canvas.style.visibility = on ? '' : 'hidden';
+// "3D": the buildings themselves, see-through over the camera; "Puntos": a dot at each building, by its period
+function setSolid(on) {
+  ar.solid = on;
+  arSolidBtn.setAttribute('aria-pressed', String(on));
+  const glass = on && !!ar.stream;
+  uniforms.uAlpha.value = glass ? 0.45 : 1;
+  for (const m of meshes) {
+    m.visible = on;
+    if (m.userData.draw.transparent !== glass) { m.userData.draw.transparent = glass; m.userData.draw.needsUpdate = true; }
+  }
+}
+function setDots(on) {
+  ar.dots = on;
+  arDotsBtn.setAttribute('aria-pressed', String(on));
+  arDots.visible = on;
+}
+// the dots: the buildings within 320 m, rebuilt as one walks; nearer is bigger, farther fades
+let arDots = null;
+const dotMat = new THREE.ShaderMaterial({
+  uniforms: { uPx: { value: 1 }, uHi: { value: -1 } },
+  transparent: true, depthTest: false, depthWrite: false,
+  vertexShader: /* glsl */`
+    attribute vec3 color; attribute float gid;
+    uniform float uPx, uHi;
+    varying vec3 vC; varying float vA, vHi;
+    void main() {
+      vec4 mv = modelViewMatrix * vec4(position, 1.0);
+      float d = max(-mv.z, 1.0);
+      vHi = abs(gid - uHi) < 0.5 ? 1.0 : 0.0;
+      vC = color;
+      vA = 1.0 - smoothstep(170.0, 320.0, d);
+      gl_PointSize = uPx * (clamp(1100.0 / d, 7.0, 26.0) + vHi * 10.0);
+      gl_Position = projectionMatrix * mv;
+    }`,
+  fragmentShader: /* glsl */`
+    varying vec3 vC; varying float vA, vHi;
+    void main() {
+      float r = length(gl_PointCoord - 0.5);
+      if (r > 0.5) discard;
+      vec3 c = r > 0.36 ? mix(vec3(0.06), vec3(1.0), vHi) : vC;
+      gl_FragColor = vec4(c, (r > 0.44 ? 0.75 : 0.92) * max(vA, vHi));
+    }`,
+});
+function arBuildDots(at) {
+  const pos = [], color = [], gid = [], cs = periods.map(p => new THREE.Color(p.color));
+  for (let i = 0; i < N; i++) {
+    if (!B.ok[i]) continue;
+    const o = i * S, x = dv.getFloat32(o + F.x, true), z = dv.getFloat32(o + F.z, true);
+    if ((x - at.x) ** 2 + (z - at.z) ** 2 > 320 * 320) continue;
+    const h = dv.getUint16(o + F.h, true) / 10;
+    pos.push(x, dv.getFloat32(o + F.base, true) + Math.min(Math.max(h * 0.6, 2.5), 14), z);
+    const c = cs[B.period[i]] || cs[0];
+    color.push(c.r, c.g, c.b); gid.push(i);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(color, 3));
+  g.setAttribute('gid', new THREE.Float32BufferAttribute(gid, 1));
+  if (!arDots) { arDots = new THREE.Points(g, dotMat); arDots.frustumCulled = false; arDots.renderOrder = 5; scene.add(arDots); }
+  else { arDots.geometry.dispose(); arDots.geometry = g; }
+  arDots.visible = ar.dots;
+  ar.dotsAt = at.clone();
 }
 
 async function enterAR(demo = false) {
@@ -1376,8 +1437,11 @@ async function enterAR(demo = false) {
   // the screen stays on while looking around
   try { ar.wake = await navigator.wakeLock?.request('screen'); } catch (e) { /* not offered */ }
   if (!ar) { ar?.wake?.release(); return; }
-  setGhost(!ar.stream);
-  flat.visible = !ar.stream; // no camera: the ground under the buildings
+  setSolid(!ar.stream); // no camera: the buildings and the ground under them instead
+  flat.visible = !ar.stream;
+  dotMat.uniforms.uPx.value = renderer.getPixelRatio();
+  ar.dots = true;
+  arDotsBtn.setAttribute('aria-pressed', 'true');
   if (demo || !navigator.geolocation) arDemo(); else arStatusText();
   arFov();
   arHint.hidden = false;
@@ -1396,7 +1460,13 @@ function exitAR() {
   ar = null;
   document.body.classList.remove('ar-on');
   arBox.hidden = true; arArrow.hidden = true; arLook.hidden = true;
-  canvas.style.opacity = ''; canvas.style.visibility = '';
+  uniforms.uAlpha.value = 1;
+  for (const m of meshes) {
+    m.visible = true;
+    if (m.userData.draw.transparent) { m.userData.draw.transparent = false; m.userData.draw.needsUpdate = true; }
+  }
+  if (arDots) arDots.visible = false;
+  dotMat.uniforms.uHi.value = -1;
   camera.near = 10; camera.fov = 35; flat.visible = true; controls.enabled = true;
   uniforms.uHover.value = -1;
   pinCard(-1);
@@ -1406,7 +1476,8 @@ function exitAR() {
 arBtn.onclick = () => enterAR();
 arStart.onclick = () => enterAR();
 document.getElementById('ar-close').onclick = exitAR;
-arGhostBtn.onclick = () => setGhost(!ar.ghost);
+arSolidBtn.onclick = () => setSolid(!ar.solid);
+arDotsBtn.onclick = () => setDots(!ar.dots);
 arLook.onclick = () => { if (ar?.look >= 0) pinCard(ar.look, innerWidth / 2, innerHeight / 2); };
 document.getElementById('ar-routes').onclick = () => openRoutes(routesBox.hidden);
 arStatus.addEventListener('click', e => { if (e.target.closest('[data-demo]')) arDemo(); });
@@ -1469,7 +1540,8 @@ function arFrame(now) {
   camera.quaternion.copy(ar.q);
   camera.updateMatrixWorld();
   if (!ar.pos) { renderer.clear(); return; }
-  if (ar.ghost) renderer.render(scene, camera);
+  if (ar.dots && (!ar.dotsAt || ar.dotsAt.distanceTo(ar.pos) > 40)) arBuildDots(ar.pos);
+  renderer.render(scene, camera);
 
   // what is in front: the building under the reticle, three times a second
   if (now - ar.lookAt > 330 && pinned === -1) {
@@ -1477,7 +1549,7 @@ function arFrame(now) {
     let i = pick(innerWidth / 2, innerHeight / 2);
     if (i >= 0 && !B.ok[i]) i = -1;
     if (i !== ar.look) {
-      ar.look = i; uniforms.uHover.value = i;
+      ar.look = i; uniforms.uHover.value = i; dotMat.uniforms.uHi.value = i;
       arLook.hidden = i < 0;
       if (i >= 0) {
         const b = building(i), name = SEE_BY_G.get(i)?.n || cap(heritage[i]?.n) || uses[b.use]?.label;
