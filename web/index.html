@@ -18,6 +18,8 @@
 <canvas id="scene" aria-label="Mapa 3D de los edificios de Sevilla y el Aljarafe"></canvas>
 <div class="veil veil-top" aria-hidden="true"></div>
 <div class="veil veil-bottom" aria-hidden="true"></div>
+<svg id="route-line" class="route-line" aria-hidden="true" hidden><path class="under"/><path class="over"/></svg>
+<div id="labels" class="labels"></div>
 
 <header class="masthead glass">
   <a class="overline" id="portal-link" href="https://spain-cities.quijada.uk/">Ciudades de España · edificio a edificio</a>
@@ -29,7 +31,11 @@
     <select id="muni"></select>
   </label>
   <label class="only"><input type="checkbox" id="only"> Ocultar el resto</label>
-  <a class="change" id="change" href="../" hidden>Cambiar municipios</a>
+  <div class="actions">
+    <a class="change" id="change" href="../" hidden>Cambiar municipios</a>
+    <button class="change" id="g-see" aria-pressed="false" hidden title="Los imprescindibles, con su nombre (V)">Qué ver</button>
+    <button class="change" id="g-routes" aria-expanded="false" aria-controls="routes" hidden>Rutas</button>
+  </div>
 </header>
 
 <div class="tally glass" aria-live="polite">
@@ -63,6 +69,11 @@
 </aside>
 
 <div id="card" class="card glass" hidden></div>
+
+<section id="routes" class="routes glass" hidden aria-labelledby="routes-title">
+  <div class="routes-head"><h2 id="routes-title">Rutas a pie</h2><button class="close" aria-label="Cerrar">×</button></div>
+  <ul id="routes-list"></ul>
+</section>
 
 <footer class="dock glass">
   <div class="dock-row">
@@ -112,7 +123,8 @@
   cada edificio se asienta en la cota más baja bajo su planta.</p>
   <h3>Atajos</h3>
   <p class="keys"><kbd>1</kbd>–<kbd>4</kbd> colorear por · <kbd>Espacio</kbd> reproducir · <kbd>H</kbd> vista inicial ·
-  <kbd>R</kbd> dar la vuelta · <kbd>N</kbd> noche o día · <kbd>Esc</kbd> cerrar la ficha</p>
+  <kbd>R</kbd> dar la vuelta · <kbd>N</kbd> noche o día · <kbd>V</kbd> qué ver · <kbd>←</kbd> <kbd>→</kbd> paradas de la ruta ·
+  <kbd>Esc</kbd> cerrar la ficha</p>
 </dialog>
 
 <div id="loading" class="loading">

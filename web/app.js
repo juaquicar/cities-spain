@@ -34,9 +34,11 @@ let at = 0;
 const parts = (config.attrParts || ['attrs.bin']).map(p => typeof p === 'string' ? { file: p } : p)
   .filter(p => !PARTIAL || !p.munis || p.munis.some(id => LOADED.has(id)));
 const attrBuf = new ArrayBuffer(N * S);
-const [heritage, ground] = await Promise.all([
+const [heritage, ground, tourism] = await Promise.all([
   fetch('data/monumentos.json').then(r => r.ok ? r.json() : {}).catch(() => ({})),
   fetch('data/ground.json').then(r => r.ok ? r.json() : { munis: [], water: [] }).catch(() => ({ munis: [], water: [] })),
+  // the must-sees and walking routes (pipeline): optional, no file means no tourist mode
+  fetch('data/turismo.json').then(r => r.ok ? r.json() : null).catch(() => null),
   ...parts.map(p => fetch(`data/${p.file}`).then(r => r.arrayBuffer()).then(buf => { p.buf = buf; })),
 ]);
 const rowsLoaded = [];
@@ -644,7 +646,9 @@ const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '
 const periodOf = k => periods[k] || periods[0];
 function cardHtml(i, pinned) {
   const b = building(i), p = periodOf(b.period), u = uses[b.use] || uses[0];
-  const h = b.mon;
+  // a heritage record, a must-see, or both (the record's fields win)
+  const h = b.mon || SEE.get(i) ? { ...SEE.get(i), ...b.mon } : null;
+  const stop = pinned && walk ? walk.stops.findIndex(s => s.g === i) : -1;
   const year = h?.y0 != null && b.flag >= 3 && h.y1 && h.y1 !== h.y0 ? `${h.y0}–${h.y1}` : (b.flag && b.flag !== 3 ? `c. ${b.year}` : b.year);
   const rows = [
     ['Municipio', muniById[b.muni]?.name ?? ''],
@@ -662,13 +666,16 @@ function cardHtml(i, pinned) {
   const img = h?.img ? `<img class="photo" alt="" loading="lazy" src="https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(h.img)}?width=560">` : '';
   const ll = `${b.lat.toFixed(6)},${b.lon.toFixed(6)}`;
   return `${pinned ? '<button class="close" aria-label="Cerrar">×</button>' : ''}
-    ${img}${h ? `<p class="name">${esc(h.n)}</p>` : ''}
+    ${stop >= 0 ? stopHtml(stop) : ''}
+    ${img}${h?.n || stop >= 0 ? `<p class="name">${esc(h?.n || walk.stops[stop].n)}</p>` : ''}${h?.d ? `<p class="desc">${esc(h.d)}</p>` : ''}
+    ${pinned && h?.wp ? '<p class="summary" aria-live="polite"></p>' : ''}
     <h3>${year}</h3>
     <p class="era"><i style="background:${p.color}"></i>${p.label}${['', ' · año redondeado', ' · año estimado', ` · fecha ${HSRC}`, ` · periodo ${HSRC}`][b.flag] || ''}</p>
     <dl>${rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
     ${pinned ? `<p class="links">
       ${FORAL ? '<a href="https://geo.bizkaia.eus/" target="_blank" rel="noopener">Catastro de Bizkaia</a>'
         : `<a href="https://www1.sedecatastro.gob.es/Cartografia/mapa.aspx?refcat=${encodeURIComponent(b.ref)}" target="_blank" rel="noopener">Catastro</a>`}
+      <a href="https://www.google.com/maps/dir/?api=1&travelmode=walking&destination=${ll}" target="_blank" rel="noopener">Cómo llegar</a>
       <a href="https://www.google.com/maps/search/?api=1&query=${ll}" target="_blank" rel="noopener">Mapa</a>
       <a href="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${ll}" target="_blank" rel="noopener">Street View</a>
       ${h?.iaph ? `<a href="https://guiadigital.iaph.es/bien/inmueble/${h.iaph}" target="_blank" rel="noopener">IAPH</a>` : ''}
@@ -680,7 +687,7 @@ let hoverGid = -1, pinned = -1;
 function placeCard(x, y) {
   const w = card.offsetWidth, h = card.offsetHeight;
   card.style.left = `${Math.min(innerWidth - w - 12, x + 16)}px`;
-  card.style.top = `${Math.min(innerHeight - h - 12, Math.max(12, y - h / 2))}px`;
+  card.style.top = `${Math.max(12, Math.min(innerHeight - h - 12, y - h / 2))}px`;
 }
 function showCard(i, x, y) {
   if (pinned >= 0) return;
@@ -699,7 +706,34 @@ function pinCard(i, x, y) {
   card.innerHTML = cardHtml(i, true);
   card.hidden = false;
   placeCard(x, y);
-  card.querySelector('.close').onclick = () => pinCard(-1);
+  card.querySelector('.close').onclick = () => { if (walk) endWalk(); pinCard(-1); };
+  card.querySelector('.stop')?.addEventListener('click', e => {
+    const b = e.target.closest('[data-go]');
+    if (b) b.dataset.go === 'fin' ? (endWalk(), pinCard(-1)) : goStop(walk.k + +b.dataset.go);
+  });
+  const sum = card.querySelector('.summary'), wp = { ...SEE.get(i), ...heritage[i] }.wp;
+  if (sum && wp) summary(wp).then(t => {
+    if (pinned !== i || !t) { sum.remove(); return; }
+    sum.textContent = t;
+    if (!narrow.matches) placeCard(x, y);
+  });
+}
+// two or three sentences of the Wikipedia article (its REST summary allows any origin)
+const summaries = new Map();
+function summary(url) {
+  if (!summaries.has(url)) {
+    let u = null;
+    try { u = new URL(url); } catch (e) { /* not a link */ }
+    const title = u && u.pathname.startsWith('/wiki/') && u.pathname.slice(6);
+    summaries.set(url, !title ? Promise.resolve('') : fetch(`${u.origin}/api/rest_v1/page/summary/${title}`)
+      .then(r => r.ok ? r.json() : {}).then(j => {
+        const parts = (j.extract || '').match(/[^.!?]+(?:[.!?]+(?=\s|$)|$)/g) || [];
+        let out = '';
+        for (const s of parts.slice(0, 3)) { if (out && (out + s).length > 420) break; out += s; }
+        return out.trim();
+      }).catch(() => ''));
+  }
+  return summaries.get(url);
 }
 
 let pointer = null, downAt = null;
@@ -731,6 +765,201 @@ find.addEventListener('keydown', e => {
   setTimeout(() => pinCard(i, innerWidth / 2, innerHeight / 2), 1400);
 });
 
+// ---------- Tourist mode: what to see, walking routes ----------
+// data/turismo.json (pipeline): must-sees by relevance, and routes of 5–12 stops in walking order, by building row.
+// Only rows that are loaded count; a route left with fewer than 3 stops is dropped.
+const okRow = g => Number.isInteger(g) && g >= 0 && g < N && B.ok[g] === 1;
+const SEE = new Map((tourism?.destacados || []).filter(d => okRow(d.g)).map(d => [d.g, d]));
+const ROUTES = (tourism?.rutas || []).map(r => ({ ...r, stops: (r.stops || []).filter(s => okRow(s.g)) })).filter(r => r.stops.length >= 3);
+const seeBtn = document.getElementById('g-see'), routesBtn = document.getElementById('g-routes');
+const routesBox = document.getElementById('routes'), labelsBox = document.getElementById('labels');
+const lineSvg = document.getElementById('route-line'), lineUnder = lineSvg.querySelector('.under'), lineOver = lineSvg.querySelector('.over');
+seeBtn.hidden = !SEE.size; routesBtn.hidden = !ROUTES.length;
+const latlon = b => `${b.lat.toFixed(6)},${b.lon.toFixed(6)}`;
+
+// fly to a building and open its card; on a phone the card covers the lower half, so aim past the building
+let pinTimer = 0;
+function goTo(i, span = 650, az = 200) {
+  const b = building(i);
+  if (state.muni >= 0 && b.muni !== state.muni) setMuni(-1, false);
+  if (b.year > state.year) setYear(yMax);
+  pinCard(-1);
+  const s = narrow.matches ? span * 0.55 : 0, r = THREE.MathUtils.degToRad(az);
+  flyTo(view(b.x + s * Math.sin(r), b.z + s * Math.cos(r), span, az, 38));
+  clearTimeout(pinTimer);
+  pinTimer = setTimeout(() => pinCard(i, innerWidth / 2, innerHeight / 2), 1400);
+}
+
+// "Qué ver": names over the must-sees, the most relevant first, as many as fit without overlapping
+let seeOn = false;
+function setSee(on) {
+  seeOn = on && SEE.size > 0;
+  seeBtn.setAttribute('aria-pressed', String(seeOn));
+  // nothing to name from here: frame the dozen most relevant
+  if (seeOn && !walk && drawOverlay() < 3) frame([...SEE.keys()].filter(g => B.year[g] <= state.year).slice(0, 12).map(roof));
+}
+// the view that takes in a set of points
+function frame(pts, min = 1200) {
+  if (!pts.length) return;
+  const xs = pts.map(v => v.x), zs = pts.map(v => v.z);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), z0 = Math.min(...zs), z1 = Math.max(...zs);
+  flyTo(view((x0 + x1) / 2, (z0 + z1) / 2, Math.max(min, Math.max(x1 - x0, z1 - z0) * 1.3)));
+}
+seeBtn.onclick = () => setSee(!seeOn);
+const tags = new Map(); // key → { el, w, h, shown }
+function makeTag(key, html, cls, onclick, g = -1) {
+  let t = tags.get(key);
+  if (!t) {
+    const el = document.createElement('button');
+    el.className = cls; el.innerHTML = html; el.onclick = onclick;
+    if (g >= 0) { el.onpointerenter = () => { uniforms.uHover.value = g; }; el.onpointerleave = () => { uniforms.uHover.value = -1; }; }
+    labelsBox.append(el);
+    t = { el, w: el.offsetWidth, h: el.offsetHeight, shown: true };
+    tags.set(key, t);
+  }
+  return t;
+}
+const roofs = new Map();
+function roof(g) {
+  if (!roofs.has(g)) { const b = building(g); roofs.set(g, new THREE.Vector3(b.x, b.base + b.h + 2, b.z)); }
+  return roofs.get(g);
+}
+const P = new THREE.Vector3();
+function screenOf(v) {
+  P.copy(v).applyMatrix4(camera.matrixWorldInverse);
+  if (P.z > -camera.near) return null; // behind the camera
+  P.applyMatrix4(camera.projectionMatrix);
+  return [(P.x + 1) / 2 * innerWidth, (1 - P.y) / 2 * innerHeight];
+}
+function drawOverlay() {
+  camera.updateMatrixWorld();
+  const want = new Set(), placed = [];
+  const place = (t, x, y) => { t.el.style.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px)`; want.add(t); };
+  const fits = (x, y, w, h) => {
+    if (x < 4 || y < 4 || x + w > innerWidth - 4 || y + h > innerHeight - 4) return false;
+    for (const r of placed) if (x < r[0] + r[2] + 6 && x + w + 6 > r[0] && y < r[1] + r[3] + 4 && y + h + 4 > r[1]) return false;
+    placed.push([x, y, w, h]);
+    return true;
+  };
+  if (walk) {
+    let d = '', pen = false;
+    for (const v of walk.path) {
+      const p = screenOf(v);
+      if (!p) { pen = false; continue; }
+      d += `${pen ? 'L' : 'M'}${p[0].toFixed(1)} ${p[1].toFixed(1)}`; pen = true;
+    }
+    lineUnder.setAttribute('d', d); lineOver.setAttribute('d', d);
+    walk.stops.forEach((s, k) => {
+      const p = screenOf(s.at);
+      if (!p) return;
+      const t = makeTag(`s${walk.r.id}:${k}`, String(k + 1), 'pin', () => goStop(k), s.g);
+      t.el.classList.toggle('on', k === walk.k);
+      placed.push([p[0] - t.w / 2, p[1] - t.h / 2, t.w, t.h]);
+      place(t, p[0] - t.w / 2, p[1] - t.h / 2);
+    });
+  } else if (seeOn) {
+    const max = narrow.matches ? 9 : 14, far = uniforms.uFog.value.y * 0.7;
+    let n = 0;
+    for (const [g, d] of SEE) {
+      if (n >= max) break;
+      if (B.year[g] > state.year || state.only && !inMuni(g) || g === pinned) continue;
+      const v = roof(g);
+      if (camera.position.distanceTo(v) > far) continue;
+      const p = screenOf(v);
+      if (!p) continue;
+      const t = makeTag(`g${g}`, `<span>${esc(d.n)}</span>`, 'tag', () => goTo(g), g);
+      const x = p[0] - t.w / 2, y = p[1] - t.h - 12;
+      if (!fits(x, y, t.w, t.h)) continue;
+      place(t, x, y); n++;
+    }
+  }
+  for (const t of tags.values()) {
+    const on = want.has(t);
+    if (on !== t.shown) { t.el.hidden = !on; t.shown = on; }
+  }
+  return want.size;
+}
+
+// "Rutas": the list, then a walk stop by stop: the camera flies to each, the card says why it is there
+let walk = null;
+const routesList = document.getElementById('routes-list');
+const km = v => v.toLocaleString('es-ES', { maximumFractionDigits: 1 });
+function renderRoutes() {
+  routesList.innerHTML = ROUTES.map((r, k) => `<li><button data-k="${k}"${walk?.r === r ? ' aria-current="true"' : ''}>
+    <span class="t">${esc(r.t)}</span>${r.d ? `<span class="d">${esc(r.d)}</span>` : ''}
+    <span class="m">${r.km ? `${km(r.km)} km · ` : ''}${r.stops.length} paradas${walk?.r === r ? ' · en curso' : ''}</span></button></li>`).join('');
+}
+function openRoutes(open) {
+  routesBox.hidden = !open;
+  routesBtn.setAttribute('aria-expanded', String(open));
+  if (!open) return;
+  renderRoutes();
+  pinCard(-1);
+  if (narrow.matches) foldPanel(false);
+}
+routesBtn.onclick = () => openRoutes(routesBox.hidden);
+routesBox.querySelector('.close').onclick = () => openRoutes(false);
+routesList.onclick = e => {
+  const b = e.target.closest('button[data-k]');
+  if (b) startWalk(ROUTES[+b.dataset.k]);
+};
+function startWalk(r, k = 0) {
+  const stops = r.stops.map(s => {
+    const b = building(s.g);
+    return { ...s, x: b.x, z: b.z, lat: b.lat, lon: b.lon, at: new THREE.Vector3(b.x, groundAt(b.x, b.z) + 3, b.z) };
+  });
+  // a straight line between stops, laid on the ground every 30 m
+  const path = [];
+  for (let j = 0; j < stops.length - 1; j++) {
+    const a = stops[j], c = stops[j + 1], n = Math.max(2, Math.ceil(Math.hypot(c.x - a.x, c.z - a.z) / 30));
+    for (let q = 0; q < n; q++) {
+      const x = a.x + (c.x - a.x) * q / n, z = a.z + (c.z - a.z) * q / n;
+      path.push(new THREE.Vector3(x, groundAt(x, z) + 3, z));
+    }
+  }
+  path.push(stops[stops.length - 1].at);
+  walk = { r, stops, path, k: -1 };
+  lineSvg.removeAttribute('hidden'); // an <svg> has no .hidden
+  routesBtn.classList.add('walking');
+  openRoutes(false);
+  setOrbit(false);
+  goStop(Math.min(Math.max(0, k), stops.length - 1));
+}
+function goStop(k) {
+  if (!walk || k < 0 || k >= walk.stops.length) return;
+  walk.k = k;
+  // look ahead along the route: the camera stands on the side the walker comes from
+  const s = walk.stops[k], a = walk.stops[k - 1], n = walk.stops[k + 1];
+  const dx = a ? a.x - s.x : s.x - n.x, dz = a ? a.z - s.z : s.z - n.z;
+  goTo(s.g, 560, THREE.MathUtils.radToDeg(Math.atan2(dx, dz)));
+  writeHash();
+}
+function endWalk() {
+  walk = null;
+  lineSvg.setAttribute('hidden', '');
+  routesBtn.classList.remove('walking');
+  writeHash();
+}
+function walkUrl(k) {
+  // from this stop to the end; Google Maps takes up to 9 stops in between
+  const rest = walk.stops.slice(k), mid = rest.slice(1, -1).slice(0, 9);
+  const p = new URLSearchParams({ api: '1', travelmode: 'walking', origin: latlon(rest[0]), destination: latlon(rest[rest.length - 1]) });
+  if (mid.length) p.set('waypoints', mid.map(latlon).join('|'));
+  return `https://www.google.com/maps/dir/?${p.toString().replace(/%2C/g, ',').replace(/%7C/g, '|')}`;
+}
+function stopHtml(k) {
+  const s = walk.stops[k], n = walk.stops.length;
+  return `<div class="stop">
+    <p class="stop-route">${esc(walk.r.t)} · ${k + 1} de ${n}</p>
+    ${s.txt ? `<p class="stop-txt">${esc(s.txt)}</p>` : ''}
+    <div class="stop-nav">
+      <button data-go="-1"${k ? '' : ' disabled'}>← Anterior</button>
+      ${k < n - 1 ? '<button data-go="1" class="next">Siguiente →</button>' : '<button data-go="fin" class="next">Terminar</button>'}
+    </div>
+    ${k < n - 1 ? `<a class="walk-link" href="${walkUrl(k)}" target="_blank" rel="noopener">Abrir a pie en Google Maps</a>` : ''}
+  </div>`;
+}
+
 // ---------- URL ----------
 function writeHash() {
   const m = muniById[state.muni];
@@ -739,6 +968,7 @@ function writeHash() {
   if (state.mode) h.set('modo', ['epoca', 'uso', 'plantas', 'patrimonio'][state.mode]);
   if (PARTIAL) h.set('cargar', munis.map(m => m.code).join(','));
   if (LABEL !== config.label && PARTIAL && munis.length > 1) h.set('titulo', LABEL);
+  if (walk) { h.set('ruta', walk.r.id); if (walk.k > 0) h.set('parada', walk.k + 1); }
   const s = h.toString();
   history.replaceState(null, '', s ? `#${s.replace(/%2C/g, ',')}` : location.pathname + location.search);
 }
@@ -757,7 +987,7 @@ function say(text) {
   toast.textContent = text; toast.hidden = false;
   clearTimeout(toastTimer); toastTimer = setTimeout(() => { toast.hidden = true; }, 2200);
 }
-const goHome = () => flyTo(home);
+const goHome = () => walk ? (pinCard(-1), frame(walk.stops.map(s => s.at), 800)) : flyTo(home);
 document.getElementById('t-home').onclick = goHome;
 const orbitBtn = document.getElementById('t-orbit');
 controls.autoRotateSpeed = -0.5;
@@ -824,7 +1054,9 @@ addEventListener('keydown', e => {
   else if (k === 'h') goHome();
   else if (k === 'r') setOrbit(!controls.autoRotate);
   else if (k === 'n') setTheme(theme === 'noche' ? 'dia' : 'noche');
-  else if (k === 'escape') pinCard(-1);
+  else if (k === 'v' && SEE.size) setSee(!seeOn);
+  else if (walk && (k === 'arrowright' || k === 'arrowleft')) { e.preventDefault(); goStop(walk.k + (k === 'arrowright' ? 1 : -1)); }
+  else if (k === 'escape') { if (!routesBox.hidden) openRoutes(false); else { if (walk) endWalk(); pinCard(-1); } }
   else return;
 });
 // the legend starts below the masthead, whatever its height
@@ -832,6 +1064,7 @@ const masthead = document.querySelector('.masthead');
 new ResizeObserver(() => {
   panelBox.style.top = narrow.matches ? '' : `${masthead.getBoundingClientRect().bottom + 12}px`;
   panelBox.style.maxHeight = narrow.matches ? '' : `${innerHeight - masthead.getBoundingClientRect().bottom - 12 - 150}px`;
+  routesBox.style.top = panelBox.style.top; routesBox.style.maxHeight = panelBox.style.maxHeight;
 }).observe(masthead);
 // the way back to the list of cities, when this map is one of the portal's
 const portalLink = document.getElementById('portal-link');
@@ -892,7 +1125,9 @@ setTheme(theme);
   const h = new URLSearchParams(location.hash.slice(1));
   const y = +h.get('ano');
   if (y >= yMin && y < yMax) setYear(y);
-  const ref = h.get('ref');
+  const r = ROUTES.find(r => r.id === h.get('ruta'));
+  if (r) setTimeout(() => startWalk(r, (+h.get('parada') || 1) - 1), shared.length === 5 ? 300 : 2700);
+  const ref = r ? null : h.get('ref');
   if (ref) {
     for (let i = 0; i < N; i++) if (B.ok[i] && building(i).ref === ref) {
       setTimeout(() => pinCard(i, innerWidth / 2, innerHeight / 2), shared.length === 5 ? 300 : 2700);
@@ -918,4 +1153,5 @@ renderer.setAnimationLoop(now => {
     else if (i >= 0) placeCard(pointer[0], pointer[1]);
   }
   renderer.render(scene, camera);
+  if (walk || seeOn || tags.size) drawOverlay();
 });

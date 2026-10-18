@@ -63,7 +63,12 @@ municipio; el visor lee `#cargar=41093,41094&titulo=…` y descarga solo esos. S
 
 Dos temas, noche (por defecto) y día, que se recuerdan en el navegador. Herramientas: vista inicial, dar la vuelta,
 tema, copiar enlace a la vista (`#v=x,z,distancia,azimut,elevación`, más `ano` y `ref` si hay año o ficha), guardar
-imagen. Atajos: `1`–`4` modos, `Espacio` reproducir, `H`, `R`, `N`, `Esc`. Hitos de cada ciudad sobre el histograma.
+imagen. Atajos: `1`–`4` modos, `Espacio` reproducir, `H`, `R`, `N`, `V`, `←` `→`, `Esc`. Hitos de cada ciudad sobre el histograma.
+
+Modo turismo, si el sitio trae `data/turismo.json`: «Qué ver» pone el nombre sobre los imprescindibles (los más
+relevantes que caben sin pisarse) y «Rutas» abre paseos parada a parada, con la línea entre paradas, el texto de cada
+una, Anterior/Siguiente y el enlace «Abrir a pie en Google Maps» (`#ruta=id&parada=n` en el enlace). Al fijar un
+monumento con artículo, la ficha añade dos o tres frases del resumen de Wikipedia y «Cómo llegar».
 
 ### Sitios publicados
 

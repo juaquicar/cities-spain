@@ -75,6 +75,43 @@ h1.long { font-size: clamp(25px, 2.5vw, 32px); }
 .change { display: inline-block; margin-top: 10px; padding: 6px 13px; border-radius: 99px; background: var(--faint);
   border: 1px solid var(--edge); color: var(--ink); font-weight: 700; font-size: 13px; text-decoration: none; }
 .change:hover, .change:focus-visible { border-color: var(--accent); }
+.actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.actions:not(:has(> :not([hidden]))) { display: none; }
+.actions .change { margin: 0; padding: 5px 11px; font-size: 12.5px; cursor: pointer; }
+.change[aria-pressed="true"], .change[aria-expanded="true"], .change.walking { background: var(--accent); color: var(--accent-ink);
+  border-color: transparent; }
+
+/* ---------- Tourist mode: names over the must-sees, route line and stops, routes list ---------- */
+.labels { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
+.tag, .pin { position: absolute; left: 0; top: 0; pointer-events: auto; cursor: pointer; will-change: transform; font: inherit; }
+.tag { padding: 4px 11px; border: 1px solid var(--edge); border-radius: 99px; background: var(--glass-solid); color: var(--ink);
+  font-weight: 700; font-size: 12px; white-space: nowrap; box-shadow: 0 4px 16px rgba(0, 0, 0, .28); }
+.tag span { display: block; max-width: 190px; overflow: hidden; text-overflow: ellipsis; }
+.tag::after { content: ""; position: absolute; left: calc(50% - 1px); top: 100%; width: 2px; height: 12px;
+  background: linear-gradient(var(--accent), transparent); }
+.tag:hover, .tag:focus-visible { border-color: var(--accent); }
+.pin { display: grid; place-items: center; width: 26px; height: 26px; padding: 0; border: 2px solid var(--accent);
+  border-radius: 50%; background: var(--glass-solid); color: var(--ink); font-weight: 800; font-size: 12px;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, .3); }
+.pin.on { background: var(--accent); color: var(--accent-ink); box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 30%, transparent); }
+.route-line { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.route-line path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.route-line .under { stroke: var(--sky); stroke-width: 7; opacity: .75; }
+.route-line .over { stroke: var(--accent); stroke-width: 3; }
+
+.routes { position: fixed; z-index: 6; left: var(--gutter); top: calc(env(safe-area-inset-top, 0px) + var(--gutter) + 236px);
+  width: min(340px, calc(100vw - 2 * var(--gutter))); max-height: calc(100vh - 430px); overflow-y: auto; padding: 12px 12px 10px;
+  background: var(--glass-solid); scrollbar-width: thin; }
+.routes-head { display: flex; justify-content: space-between; align-items: center; margin: 0 2px 6px 4px; }
+.routes h2 { margin: 0; font: 700 21px/1.1 var(--display); letter-spacing: -0.01em; }
+.routes .close { width: 30px; height: 30px; border: 0; border-radius: 50%; background: none; font-size: 22px; line-height: 1; cursor: pointer; }
+.routes ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.routes li button { display: grid; gap: 2px; width: 100%; padding: 9px 10px; border: 0; border-radius: 11px; background: none;
+  text-align: left; cursor: pointer; }
+.routes li button:hover, .routes li button[aria-current] { background: var(--faint); }
+.routes .t { font-weight: 800; font-size: 14.5px; }
+.routes .d { color: var(--muted); font-size: 12.5px; line-height: 1.4; }
+.routes .m { color: var(--accent); font-size: 12px; font-weight: 700; }
 
 /* ---------- Year and count, tools ---------- */
 .tally { position: fixed; top: calc(env(safe-area-inset-top, 0px) + var(--gutter)); right: var(--gutter); text-align: right;
@@ -118,12 +155,27 @@ h1.long { font-size: clamp(25px, 2.5vw, 32px); }
 /* ---------- Building card ---------- */
 .card { position: fixed; z-index: 5; width: 290px; padding: 14px 16px; pointer-events: none; font-size: 13px;
   background: var(--glass-solid); }
-.card.pinned { pointer-events: auto; }
+.card.pinned { pointer-events: auto; max-height: calc(100vh - 24px); overflow-y: auto; scrollbar-width: thin; }
 .card h3 { margin: 0; font: 700 26px/1.05 var(--display); letter-spacing: -0.02em; color: var(--accent); }
 .card .photo { display: block; width: calc(100% + 32px); margin: -14px -16px 12px; height: 156px; object-fit: cover;
   border-radius: var(--radius) var(--radius) 0 0; background: var(--faint); }
 .card .name { margin: 0 0 2px; font: 600 17px/1.2 var(--display); }
 .card .credit { margin: 6px 0 0; color: var(--muted); font-size: 11px; }
+.card .desc { margin: 0 0 6px; color: var(--muted); font-size: 12.5px; line-height: 1.4; }
+.card .summary { margin: 2px 0 10px; font-size: 13px; line-height: 1.5; }
+.card .summary:empty { height: 3em; border-radius: 8px; opacity: .55;
+  background: linear-gradient(90deg, var(--faint), transparent 80%); }
+.card .stop { position: sticky; top: -14px; z-index: 1; margin: -14px -16px 12px; padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--edge); background: var(--glass-solid); }
+.card .stop + .photo { width: 100%; margin: 0 0 12px; border-radius: 10px; }
+.stop-route { margin: 0 30px 6px 0; font-size: 10.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+.stop-txt { margin: 0 0 10px; font-size: 14px; line-height: 1.45; }
+.stop-nav { display: flex; gap: 6px; }
+.stop-nav button { flex: 1; padding: 8px 10px; border: 1px solid var(--edge); border-radius: 10px; background: var(--faint);
+  font-weight: 700; cursor: pointer; }
+.stop-nav .next { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+.stop-nav button:disabled { opacity: .4; cursor: default; }
+.walk-link { display: inline-block; margin-top: 9px; font-size: 12.5px; font-weight: 700; }
 .card .era { margin: 2px 0 10px; color: var(--muted); }
 .card .era i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; }
 .card dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; margin: 0; padding-top: 10px; border-top: 1px solid var(--edge); }
@@ -134,7 +186,7 @@ h1.long { font-size: clamp(25px, 2.5vw, 32px); }
   background: var(--faint); }
 .card .links a:hover { background: var(--accent); color: var(--accent-ink); }
 .card .close { position: absolute; right: 8px; top: 6px; width: 28px; height: 28px; border: 0; border-radius: 50%;
-  background: var(--glass); font-size: 18px; line-height: 1; cursor: pointer; z-index: 1; }
+  background: var(--glass); font-size: 18px; line-height: 1; cursor: pointer; z-index: 2; }
 
 /* ---------- Dock: modes and timeline ---------- */
 .dock { position: fixed; left: var(--gutter); right: var(--gutter); bottom: calc(env(safe-area-inset-bottom, 0px) + var(--gutter));
@@ -220,7 +272,16 @@ h1.long { font-size: clamp(25px, 2.5vw, 32px); }
   /* card: a sheet above the dock */
   .card { left: var(--gutter) !important; right: var(--gutter); top: auto !important; width: auto;
     bottom: calc(env(safe-area-inset-bottom, 0px) + 150px); max-height: 56vh; overflow-y: auto; }
+  .card.pinned { max-height: 56vh; }
+  .card.pinned:has(.stop) { max-height: 46vh; }
   .card .photo { height: 130px; }
+  /* the walk's buttons stay in reach while the card scrolls */
+  .routes { top: auto !important; left: var(--gutter); right: var(--gutter); width: auto; max-height: 56vh !important;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 150px); }
+  .actions { margin-right: -108px; }
+  .actions .change { padding: 7px 12px; font-size: 13px; }
+  .tag { font-size: 11.5px; padding: 4px 10px; }
+  .tag span { max-width: 150px; }
   .about { width: calc(100vw - 20px); max-height: 86vh; padding: 20px; }
   .toast { bottom: calc(env(safe-area-inset-bottom, 0px) + 200px); }
 }
