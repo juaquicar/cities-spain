@@ -1255,13 +1255,17 @@ function arPlaces() {
 
 function onOrient(e) {
   if (!ar || e.alpha == null) return;
+  // Android sends both: the absolute one (on the north) wins while it keeps coming
+  const absolute = e.type === 'deviceorientationabsolute';
+  if (absolute) ar.absAt = performance.now();
+  else if (performance.now() - (ar.absAt || -1e9) < 1000) return;
   let alpha = e.alpha;
   if (e.webkitCompassHeading != null && e.webkitCompassHeading >= 0) {
     // iOS: alpha starts wherever the phone was; the compass heading says where the north is
     const off = ((360 - e.webkitCompassHeading - e.alpha) % 360 + 540) % 360 - 180;
     ar.north = ar.north == null ? off : ar.north + ((off - ar.north + 540) % 360 - 180) * 0.05;
     alpha += ar.north; ar.abs = true;
-  } else if (e.absolute || e.type === 'deviceorientationabsolute') ar.abs = true;
+  } else ar.abs = absolute || !!e.absolute;
   const first = !ar.raw;
   ar.raw = [alpha, e.beta, e.gamma];
   if (first) arStatusText();
@@ -1271,9 +1275,12 @@ function onFix(p) {
   const { latitude: lat, longitude: lon, accuracy } = p.coords;
   if (!ar.fit?.at || Math.abs(lat - ar.fit.lat) > 0.005 || Math.abs(lon - ar.fit.lon) > 0.006) ar.fit = fitAt(lat, lon);
   if (!ar.fit.at) {
-    arStatus.innerHTML = `Estás a ${km(ar.fit.far)} km de lo cargado. <button data-demo>Simularlo aquí</button>`;
+    // far from the city: stand in it anyway, the phone still turns the view
+    ar.far = ar.fit.far;
+    if (!ar.demo) arDemo(); else arStatusText();
     return;
   }
+  ar.far = 0;
   const [x, z] = ar.fit.at(lat, lon);
   ar.fix = new THREE.Vector3(x, eyeAt(x, z), z);
   if (!ar.pos || ar.demo) { ar.demo = false; ar.pos = ar.fix.clone(); }
@@ -1282,10 +1289,15 @@ function onFix(p) {
 }
 function onFixError(err) {
   if (!ar) return;
-  arStatus.innerHTML = `${err.code === 1 ? 'Sin permiso de ubicación' : 'Sin señal GPS'}. <button data-demo>Simularlo aquí</button>`;
+  ar.gpsErr = err.code === 1 ? 'sin permiso de ubicación' : 'sin señal GPS';
+  if (!ar.demo) arDemo(); else arStatusText();
 }
 function arStatusText() {
-  if (ar.demo) { arStatus.textContent = 'Simulado: arrastra para mirar alrededor'; return; }
+  if (ar.demo) {
+    const why = ar.far ? `Estás a ${km(ar.far)} km` : ar.gpsErr ? cap(ar.gpsErr) : 'Simulado';
+    arStatus.textContent = `${why}: te pongo ${SEE[0] && !ar.close ? `junto a ${SEE[0].n}` : 'en el centro del mapa'} · ${ar.raw ? 'gira el móvil' : 'arrastra para mirar'}`;
+    return;
+  }
   const gps = ar.acc ? `GPS ±${Math.round(ar.acc)} m` : 'Buscando tu posición…';
   arStatus.textContent = `${gps} · ${ar.abs ? 'brújula' : ar.raw ? 'sin brújula: desliza para orientar' : 'sin sensores'}`;
 }
@@ -1311,7 +1323,9 @@ function arDemo() {
     face = new THREE.Vector3(c.x - x, 0, c.z - z);
   }
   ar.pos = new THREE.Vector3(x, eyeAt(x, z), z);
+  ar.close = close;
   ar.yaw = Math.atan2(-face.x, -face.z); ar.pitch = 0.12;
+  ar.align = true; // with sensors: turn the compass so that the phone, as it is held now, faces that way
   arStatusText();
 }
 
@@ -1345,8 +1359,8 @@ async function enterAR(demo = false) {
   controls.enabled = false;
   camera.near = 0.5; flat.visible = false;
   uniforms.uFog.value.set(700, 2600);
-  ar.ev = 'ondeviceorientationabsolute' in window ? 'deviceorientationabsolute' : 'deviceorientation';
-  addEventListener(ar.ev, onOrient);
+  addEventListener('deviceorientationabsolute', onOrient);
+  addEventListener('deviceorientation', onOrient);
   if (!demo) {
     try {
       ar.stream = await navigator.mediaDevices.getUserMedia({ audio: false,
@@ -1371,7 +1385,8 @@ async function enterAR(demo = false) {
 }
 function exitAR() {
   if (!ar) return;
-  removeEventListener(ar.ev, onOrient);
+  removeEventListener('deviceorientationabsolute', onOrient);
+  removeEventListener('deviceorientation', onOrient);
   ar.stream?.getTracks().forEach(t => t.stop());
   ar.wake?.release().catch(() => {});
   if (ar.watch != null) navigator.geolocation.clearWatch(ar.watch);
@@ -1410,7 +1425,7 @@ arBox.addEventListener('pointermove', e => {
   if (Math.hypot(e.clientX - arDown.x0, e.clientY - arDown.y0) > 6) arDown.moved = true;
   arDown.x = e.clientX; arDown.y = e.clientY;
   if (!arDown.moved) return;
-  if (ar.raw && !ar.demo) ar.offset += dx * deg;
+  if (ar.raw) ar.offset += dx * deg;
   else { ar.yaw += d2r(dx * deg); ar.pitch = Math.max(-1.2, Math.min(1.2, ar.pitch + d2r(dy * deg))); }
 });
 arBox.addEventListener('pointerup', e => {
@@ -1435,12 +1450,22 @@ function arFrame(now) {
   // pose: the fix eased in, the phone's orientation (and the hand's correction) eased in
   if (ar.fix && !ar.demo) ar.pos.lerp(ar.fix, 0.06);
   if (ar.pos) camera.position.copy(ar.pos);
-  if (ar.raw && !ar.demo) {
+  if (ar.raw) {
     const [a, b, g] = ar.raw, rot = d2r(screen.orientation?.angle ?? window.orientation ?? 0);
-    EUL.set(d2r(b), d2r(a + ar.offset), -d2r(g), 'YXZ');
-    QT.setFromEuler(EUL).multiply(Q1).multiply(QZ.setFromAxisAngle(ZEE, -rot));
+    const pose = () => {
+      EUL.set(d2r(b), d2r(a + ar.offset), -d2r(g), 'YXZ');
+      QT.setFromEuler(EUL).multiply(Q1).multiply(QZ.setFromAxisAngle(ZEE, -rot));
+    };
+    pose();
+    if (ar.align) {
+      ar.align = false;
+      V.set(0, 0, -1).applyQuaternion(QT);
+      ar.offset += r2d(ar.yaw - Math.atan2(-V.x, -V.z));
+      pose();
+      ar.q.copy(QT);
+    }
   } else QT.setFromEuler(EUL.set(ar.pitch, ar.yaw, 0, 'YXZ'));
-  ar.q.slerp(QT, ar.raw && !ar.demo ? 0.25 : 1);
+  ar.q.slerp(QT, ar.raw ? 0.3 : 1);
   camera.quaternion.copy(ar.q);
   camera.updateMatrixWorld();
   if (!ar.pos) { renderer.clear(); return; }
