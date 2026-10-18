@@ -3,35 +3,55 @@
 import * as THREE from './vendor/three.module.js';
 import { MapControls } from './vendor/MapControls.js';
 
-const SKY = '#eceae4';
-const LAND = '#f6f5f1';
-const LAND_SEL = '#ffffff';
-const LAND_DIM = '#e6e3db';
-const BORDER = '#c9c3b5';
-const WATER = '#b9cbc9';
-const MAQUETTE = '#efede7';
+// The 3D colours of each theme (the page's colours are in styles.css): noche, a navy dusk; día, warm sand.
+const THEMES = {
+  noche: { sky: '#0e1522', land: '#223049', sel: '#2c3c5a', dim: '#162132', border: '#4a5f82', water: '#2b5f84',
+    maquette: '#4a5468', future: '#26303f', tick: '#959cab', cursor: '#e7a73c', meta: '#0e1522' },
+  dia: { sky: '#eee8dc', land: '#f7f2e8', sel: '#fffdf8', dim: '#e6dfd0', border: '#cfc2a8', water: '#a6c3c9',
+    maquette: '#ebe5d8', future: '#ddd5c4', tick: '#6c6f78', cursor: '#c2552c', meta: '#eee8dc' },
+};
+let theme = THEMES[document.documentElement.dataset.theme] ? document.documentElement.dataset.theme : 'noche';
+const C = () => THEMES[theme];
+const SKY = C().sky, LAND = C().land, LAND_SEL = C().sel, LAND_DIM = C().dim, BORDER = C().border, WATER = C().water,
+  MAQUETTE = C().maquette;
 const ATTR_W = 256;
 const WORKERS = Math.min(4, navigator.hardwareConcurrency || 2);
 const MODE = { period: 0, use: 1, floors: 2, heritage: 3 };
 const OLD = 1800; // years before this share a compressed strip at the left of the timeline
 
-// the table comes in parts when it is large (a host limits the size of each file); joined back here
-const cityP = fetch('data/city.json').then(r => r.json());
-const joinBufs = bufs => {
-  const all = new Uint8Array(bufs.reduce((s, b) => s + b.byteLength, 0));
-  let o = 0;
-  for (const b of bufs) { all.set(new Uint8Array(b), o); o += b.byteLength; }
-  return all.buffer;
-};
-const [config, attrBuf, heritage, ground] = await Promise.all([
-  cityP,
-  cityP.then(c => Promise.all((c.attrParts || ['attrs.bin']).map(f => fetch(`data/${f}`).then(r => r.arrayBuffer())))).then(joinBufs),
+// A selection made before loading (the portal's #cargar=code,code…) fetches only those municipalities: their tiles,
+// their parts of the table. Without it, everything.
+const config = await fetch('data/city.json').then(r => r.json());
+const want = (new URLSearchParams(location.hash.slice(1)).get('cargar') || '').split(',').filter(Boolean);
+const chosen = config.municipios.filter(m => want.includes(m.code));
+const PARTIAL = chosen.length > 0 && chosen.length < config.municipios.length;
+const LOADED = new Set((PARTIAL ? chosen : config.municipios).map(m => m.id));
+const N = config.stats.buildings, S = config.attrStride, F = config.attrFields;
+// parts of the table: {file, start, end, munis}, or plain names in older builds (consecutive, all needed)
+let at = 0;
+const parts = (config.attrParts || ['attrs.bin']).map(p => typeof p === 'string' ? { file: p } : p)
+  .filter(p => !PARTIAL || !p.munis || p.munis.some(id => LOADED.has(id)));
+const attrBuf = new ArrayBuffer(N * S);
+const [heritage, ground] = await Promise.all([
   fetch('data/monumentos.json').then(r => r.ok ? r.json() : {}).catch(() => ({})),
   fetch('data/ground.json').then(r => r.ok ? r.json() : { munis: [], water: [] }).catch(() => ({ munis: [], water: [] })),
+  ...parts.map(p => fetch(`data/${p.file}`).then(r => r.arrayBuffer()).then(buf => { p.buf = buf; })),
 ]);
-const periods = config.periods, uses = config.uses, munis = config.municipios;
+const rowsLoaded = [];
+for (const p of parts) {
+  const start = p.start ?? at / S;
+  new Uint8Array(attrBuf).set(new Uint8Array(p.buf), start * S);
+  rowsLoaded.push([start, start + p.buf.byteLength / S]);
+  at += p.buf.byteLength;
+  delete p.buf;
+}
+const munis = config.municipios.filter(m => LOADED.has(m.id));
+const periods = config.periods, uses = config.uses;
 const muniById = Object.fromEntries(munis.map(m => [m.id, m]));
-document.title = `${config.label}, edificio a edificio`;
+// the portal names a ready-made selection (#titulo=Aljarafe); otherwise a count of municipalities
+const LABEL = new URLSearchParams(location.hash.slice(1)).get('titulo') ||
+  (PARTIAL ? (munis.length === 1 ? munis[0].name : `${munis.length} municipios`) : config.label);
+document.title = `${LABEL}, edificio a edificio`;
 // where the heritage cards come from: the IAPH in Andalucía, Wikidata elsewhere (pipeline/region.py)
 const IAPH = (config.heritage || 'iaph') === 'iaph', HSRC = IAPH ? 'IAPH' : 'Wikidata';
 // haze starts further out when the whole area is wider than a city (a province)
@@ -39,16 +59,24 @@ const FOG = Math.max(1, config.home.span / 40000);
 const fmt = n => n.toLocaleString('es-ES', { useGrouping: 'always' });
 
 // ---------- Per-building table ----------
-const N = config.stats.buildings, S = config.attrStride, F = config.attrFields;
 const dv = new DataView(attrBuf);
 const B = {
   year: new Int16Array(N), muni: new Uint8Array(N), use: new Uint8Array(N), period: new Uint8Array(N),
   flag: new Uint8Array(N), floors: new Uint8Array(N), mon: new Uint8Array(N),
+  ok: new Uint8Array(N), // loaded and in the selection; rows of other municipalities stay out of every count
 };
-for (let i = 0, o = 0; i < N; i++, o += S) {
-  B.year[i] = dv.getInt16(o + F.year, true); B.muni[i] = dv.getUint8(o + F.muni); B.use[i] = dv.getUint8(o + F.use);
+for (const [a, z] of rowsLoaded) for (let i = a, o = a * S; i < z; i++, o += S) {
+  B.muni[i] = dv.getUint8(o + F.muni);
+  if (!LOADED.has(B.muni[i])) continue;
+  B.ok[i] = 1;
+  B.year[i] = dv.getInt16(o + F.year, true); B.use[i] = dv.getUint8(o + F.use);
   B.period[i] = dv.getUint8(o + F.period); B.flag[i] = dv.getUint8(o + F.flag); B.floors[i] = dv.getUint8(o + F.floors);
   B.mon[i] = dv.getUint8(o + F.mon);
+}
+// the legend's notes count the selection, not the whole build
+const STATS = { rounded: 0, estimated: 0, redated: 0 };
+for (let i = 0; i < N; i++) if (B.ok[i]) {
+  if (B.flag[i] === 1) STATS.rounded++; else if (B.flag[i] === 2) STATS.estimated++; else if (B.flag[i] >= 3) STATS.redated++;
 }
 const ascii = new TextDecoder('ascii');
 function building(i) {
@@ -71,10 +99,10 @@ const state = {
 
 // ---------- Scene ----------
 const canvas = document.getElementById('scene');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
 renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-renderer.setClearColor(SKY);
+renderer.setClearColor(0x000000, 0); // the page's sky gradient shows through
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(35, 1, 10, 400000);
 const controls = new MapControls(camera, canvas);
@@ -136,7 +164,7 @@ if (T) {
   for (let j = 0; j < T.nz; j++) for (let i = 0; i < T.nx; i++) {
     const k = j * T.nx + i;
     pos.set([T.x0 + i * T.step, T.h[k] / 10 - 0.6, T.z0 + j * T.step], k * 3);
-    mun[k] = T.muni[k];
+    mun[k] = PARTIAL && T.muni[k] < 255 && !LOADED.has(T.muni[k]) ? 254 : T.muni[k];
   }
   const idx = new Uint32Array((T.nx - 1) * (T.nz - 1) * 6);
   let q = 0;
@@ -157,7 +185,7 @@ if (T) {
       uniform vec3 uLand, uSel, uDim, uOut;
       out vec3 vColor; out vec3 vWorld;
       void main() {
-        vColor = muni > 254.5 ? uOut : uMuni < 0.0 ? uLand : abs(muni - uMuni) < 0.5 ? uSel : uDim;
+        vColor = muni > 254.5 ? uOut : muni > 253.5 ? uDim : uMuni < 0.0 ? uLand : abs(muni - uMuni) < 0.5 ? uSel : uDim;
         vec4 w = modelMatrix * vec4(position, 1.0);
         vWorld = w.xyz;
         gl_Position = projectionMatrix * viewMatrix * w;
@@ -177,14 +205,15 @@ if (T) {
       }`,
   })));
 }
+const borderMat = new THREE.LineBasicMaterial({ color: BORDER }), waterMat = new THREE.MeshBasicMaterial({ color: WATER, depthTest: false });
 for (const m of ground.munis) for (const p of m.rings) {
   const r = p[0], pts = [];
   for (let k = 0; k < r.length; k += 2) pts.push(new THREE.Vector3(r[k], groundAt(r[k], r[k + 1]) + 2, r[k + 1]));
-  flat.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: BORDER })));
+  flat.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts), borderMat));
 }
 if (ground.water.length) {
   // Water lies over the terrain whatever the grid's averaging does at the banks.
-  const water = new THREE.Mesh(drapedGeo(ground.water, 1), new THREE.MeshBasicMaterial({ color: WATER, depthTest: false }));
+  const water = new THREE.Mesh(drapedGeo(ground.water, 1), waterMat);
   water.renderOrder = 1;
   flat.add(water);
 }
@@ -317,7 +346,7 @@ function makeMaterial(tex, pick, born) {
 // ---------- Tiles ----------
 const meshes = [];
 let loaded = 0;
-const queue = [...config.tiles];
+const queue = config.tiles.filter(t => t.muni === undefined || LOADED.has(t.muni));
 const pool = Array.from({ length: WORKERS }, () => new Worker('worker.js', { type: 'module' }));
 function addTile(m) {
   const g = new THREE.BufferGeometry();
@@ -338,7 +367,8 @@ function addTile(m) {
   scene.add(mesh);
   meshes.push(mesh);
 }
-const packs = Object.fromEntries(config.packs.map(name => [name, fetch(`data/${name}`).then(r => r.arrayBuffer())]));
+const TILES = queue.length;
+const packs = Object.fromEntries([...new Set(queue.map(t => t.pack))].map(name => [name, fetch(`data/${name}`).then(r => r.arrayBuffer())]));
 for (const w of pool) {
   const next = async () => {
     const t = queue.shift();
@@ -349,8 +379,8 @@ for (const w of pool) {
   w.onmessage = ({ data }) => {
     addTile(data);
     loaded++;
-    document.getElementById('progress').textContent = Math.round(100 * loaded / config.tiles.length);
-    if (loaded === config.tiles.length) document.getElementById('loading').hidden = true;
+    document.getElementById('progress').textContent = Math.round(100 * loaded / TILES);
+    if (loaded === TILES) document.getElementById('loading').hidden = true;
     next();
   };
   next();
@@ -370,7 +400,6 @@ function pick(x, y) {
   renderer.render(scene, camera);
   renderer.readRenderTargetPixels(pickTarget, 0, 0, 1, 1, pickPixel);
   renderer.setRenderTarget(null);
-  renderer.setClearColor(SKY, 1);
   flat.visible = true;
   for (const m of meshes) m.material = m.userData.draw;
   camera.clearViewOffset();
@@ -392,7 +421,7 @@ function counts() {
   const hist = new Map();
   let shown = 0, total = 0;
   for (let i = 0; i < N; i++) {
-    if (!inMuni(i)) continue;
+    if (!B.ok[i] || !inMuni(i)) continue;
     total++;
     byPeriod[B.period[i]]++; byUse[B.use[i]]++; byFloors[Math.min(B.floors[i], 25)]++;
     if (B.mon[i]) { monByPeriod[B.period[i]]++; if (heritage[i]?.pr === 'BIC') bic++; }
@@ -429,8 +458,8 @@ function renderPanel(c) {
         <span class="n">${fmt(n[k])}</span></button></li>`).join('')}</ul>
       ${herit ? `<p class="note">${fmt(n.reduce((a, b) => a + b, 0))} edificios con ficha ${IAPH ? `del Instituto Andaluz del Patrimonio
         Histórico` : 'en Wikidata'}, ${fmt(c.bic)} de ellos Bien de Interés Cultural. Fechados por su construcción, no por la última reforma.</p>`
-      : `<p class="note">Más pálidos: año aproximado, redondeado en el Catastro (${fmt(config.stats.rounded)}) o estimado a partir de los vecinos (${fmt(config.stats.estimated)}).
-        Los ${fmt(config.stats.redated)} edificios catalogados llevan la fecha ${IAPH ? 'del IAPH' : 'de Wikidata'}.</p>`}`;
+      : `<p class="note">Más pálidos: año aproximado, redondeado en el Catastro (${fmt(STATS.rounded)}) o estimado a partir de los vecinos (${fmt(STATS.estimated)}).
+        Los ${fmt(STATS.redated)} edificios catalogados llevan la fecha ${IAPH ? 'del IAPH' : 'de Wikidata'}.</p>`}`;
     panel.querySelectorAll('button').forEach(b => b.onclick = () => {
       state.periodMask[+b.dataset.k] ^= 1; update();
     });
@@ -452,6 +481,15 @@ function renderPanel(c) {
 }
 
 // ---------- Timeline ----------
+// A few dates that shaped each city, marked above the histogram (desktop only).
+const MILESTONES = {
+  sevilla: [[1755, 'Terremoto de Lisboa'], [1929, 'Exposición Iberoamericana'], [1961, 'Riada del Tamarguillo'],
+    [1992, 'Expo 92'], [2008, 'Fin de la burbuja']],
+  madrid: [[1860, 'Ensanche de Castro'], [1919, 'Primer metro'], [1936, 'Guerra civil'], [1975, 'Transición'],
+    [2008, 'Fin de la burbuja']],
+  barcelona: [[1859, 'Plan Cerdà'], [1888, 'Exposición Universal'], [1929, 'Exposición Internacional'],
+    [1992, 'Juegos Olímpicos'], [2008, 'Fin de la burbuja']],
+}[config.city] || [];
 const hist = document.getElementById('hist'), hctx = hist.getContext('2d');
 const yMin = config.yearMin < OLD ? config.yearMin : Math.floor(config.yearMin / 10) * 10, yMax = config.yearMax;
 const OLD_W = config.yearMin < OLD ? 0.12 : 0;
@@ -472,20 +510,30 @@ function drawHist(c) {
     let y = top;
     for (let p = 0; p < h.length; p++) {
       if (!h[p]) continue;
-      const hh = Math.max(0.5, Math.sqrt(h[p] / peak) * (top - 4) * (k < OLD ? 0.5 : 1));
-      hctx.fillStyle = k > state.year ? '#d8d4ca' : periods[p].color;
+      const hh = Math.max(0.5, Math.sqrt(h[p] / peak) * (top - (W >= 760 ? 16 : 4)) * (k < OLD ? 0.5 : 1));
+      hctx.fillStyle = k > state.year ? C().future : periods[p].color;
       hctx.fillRect(x0, y - hh, x1 - x0 - (x1 - x0 > 3 ? 0.5 : 0), hh);
       y -= hh;
     }
   }
-  hctx.fillStyle = '#5f5c55'; hctx.font = '11px "Schibsted Grotesk", sans-serif';
+  hctx.fillStyle = C().tick; hctx.font = '600 11px "Manrope", sans-serif';
   hctx.textAlign = 'center';
   const ticks = W < 560 ? [1900, 1950, 1992, 2026] : [1900, 1929, 1950, 1975, 1992, 2008, 2026];
   if (OLD_W && W >= 560) ticks.unshift(OLD);
   for (const y of ticks) if (y >= yMin && y <= yMax) hctx.fillText(y, Math.min(W - 14, Math.max(14, xOf(y) * W)), H - 2);
   if (OLD_W) { hctx.textAlign = 'left'; hctx.fillText('antes', 0, H - 2); }
+  if (W >= 760) {
+    hctx.font = '600 10.5px "Manrope", sans-serif'; hctx.textAlign = 'left';
+    for (const [y, label] of MILESTONES) {
+      if (y < yMin || y > yMax) continue;
+      const x = xOf(y) * W;
+      hctx.fillStyle = C().tick; hctx.globalAlpha = 0.55; hctx.fillRect(x, 2, 1, top - 2); hctx.globalAlpha = 1;
+      hctx.fillStyle = y <= state.year ? C().cursor : C().tick;
+      hctx.fillText(label, Math.min(x + 4, W - hctx.measureText(label).width - 2), 10);
+    }
+  }
   const xs = xOf(state.year + 1) * W;
-  hctx.fillStyle = '#a8322d'; hctx.fillRect(Math.min(W - 2, xs), 0, 2, top);
+  hctx.fillStyle = C().cursor; hctx.fillRect(Math.min(W - 2, xs), 0, 2, top);
 }
 function scrub(e) {
   const r = hist.getBoundingClientRect();
@@ -535,19 +583,19 @@ function update(full = true) {
 // ---------- Municipality filter ----------
 const select = document.getElementById('muni'), only = document.getElementById('only');
 const title = document.getElementById('title');
-select.innerHTML = (munis.length > 1 ? `<option value="-1">Todos los municipios (${fmt(N)})</option>` : '') +
+select.innerHTML = (munis.length > 1 ? `<option value="-1">${PARTIAL ? 'Toda la selección' : 'Todos los municipios'} (${fmt(munis.reduce((s, m) => s + m.n, 0))})</option>` : '') +
   munis.map(m => `<option value="${m.id}">${m.name} (${fmt(m.n)})</option>`).join('');
 function setMuni(id, fly = true) {
   state.muni = munis.length > 1 ? id : -1;
   select.value = String(munis.length > 1 ? id : munis[0].id);
   const m = muniById[id];
-  title.textContent = m ? m.name : config.label;
+  title.textContent = m ? m.name : LABEL;
   title.classList.toggle('long', title.textContent.length > 16);
   only.parentElement.hidden = munis.length < 2 || id < 0;
   select.parentElement.hidden = munis.length < 2;
   if (fly) {
     if (m) flyTo(view(m.cx, m.cz, Math.min(Math.max(m.span, 1200), 16000)));
-    else flyTo(view(config.home.x, config.home.z, config.home.span));
+    else flyTo(view(HOME.x, HOME.z, HOME.span));
   }
   update();
 }
@@ -651,7 +699,7 @@ canvas.addEventListener('pointerdown', e => { downAt = [e.clientX, e.clientY]; }
 canvas.addEventListener('pointerup', e => {
   if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 5 || e.button !== 0) return;
   const i = pick(e.clientX, e.clientY);
-  if (i >= 0 && state.only && !inMuni(i)) return;
+  if (i >= 0 && (!B.ok[i] || state.only && !inMuni(i))) return;
   pinCard(i, e.clientX, e.clientY);
 });
 
@@ -661,7 +709,7 @@ let refIndex = null;
 find.addEventListener('keydown', e => {
   if (e.key !== 'Enter') return;
   const q = find.value.trim().toUpperCase().replace(/\s+/g, '').slice(0, 14);
-  if (!refIndex) { refIndex = new Map(); for (let i = 0; i < N; i++) refIndex.set(building(i).ref, i); }
+  if (!refIndex) { refIndex = new Map(); for (let i = 0; i < N; i++) if (B.ok[i]) refIndex.set(building(i).ref, i); }
   const i = refIndex.get(q);
   find.classList.toggle('bad', i === undefined);
   if (i === undefined) return;
@@ -678,8 +726,10 @@ function writeHash() {
   const h = new URLSearchParams();
   if (m && munis.length > 1) h.set('m', m.code);
   if (state.mode) h.set('modo', ['epoca', 'uso', 'plantas', 'patrimonio'][state.mode]);
+  if (PARTIAL) h.set('cargar', munis.map(m => m.code).join(','));
+  if (LABEL !== config.label && PARTIAL && munis.length > 1) h.set('titulo', LABEL);
   const s = h.toString();
-  history.replaceState(null, '', s ? `#${s}` : location.pathname + location.search);
+  history.replaceState(null, '', s ? `#${s.replace(/%2C/g, ',')}` : location.pathname + location.search);
 }
 function readHash() {
   const h = new URLSearchParams(location.hash.slice(1));
@@ -688,6 +738,93 @@ function readHash() {
   modeButtons.forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.mode === state.mode)));
   return m ? m.id : -1;
 }
+
+// ---------- Tools: home, orbit, theme, share, picture, keys ----------
+const toast = document.getElementById('toast');
+let toastTimer = 0;
+function say(text) {
+  toast.textContent = text; toast.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { toast.hidden = true; }, 2200);
+}
+const goHome = () => flyTo(home);
+document.getElementById('t-home').onclick = goHome;
+const orbitBtn = document.getElementById('t-orbit');
+controls.autoRotateSpeed = -0.5;
+function setOrbit(on) { controls.autoRotate = on; orbitBtn.setAttribute('aria-pressed', String(on)); }
+orbitBtn.onclick = () => setOrbit(!controls.autoRotate);
+const MOON = 'M15.5 12.5A6.5 6.5 0 0 1 7.5 4.5a6.5 6.5 0 1 0 8 8z';
+const SUN = 'M10 2.5v2M10 15.5v2M2.5 10h2M15.5 10h2M4.7 4.7l1.4 1.4M13.9 13.9l1.4 1.4M4.7 15.3l1.4-1.4M13.9 6.1l1.4-1.4M13.2 10a3.2 3.2 0 1 1-6.4 0 3.2 3.2 0 0 1 6.4 0z';
+const themeBtn = document.getElementById('t-theme');
+function setTheme(name) {
+  theme = name;
+  document.documentElement.dataset.theme = name;
+  try { localStorage.setItem('tema', name); } catch (e) { /* private mode */ }
+  const c = C();
+  groundUniforms.uLand.value.set(c.land); groundUniforms.uSel.value.set(c.sel); groundUniforms.uDim.value.set(c.dim);
+  groundUniforms.uOut.value.set(c.sky); groundUniforms.uFogColor.value.set(c.sky);
+  uniforms.uFogColor.value.set(c.sky); uniforms.uMaquette.value.set(c.maquette);
+  borderMat.color.set(c.border); waterMat.color.set(c.water);
+  document.querySelector('meta[name="theme-color"]').content = c.meta;
+  themeBtn.querySelector('path').setAttribute('d', name === 'noche' ? SUN : MOON);
+  themeBtn.title = name === 'noche' ? 'Pasar a día (N)' : 'Pasar a noche (N)';
+  if (lastCounts) drawHist(lastCounts);
+}
+themeBtn.onclick = () => setTheme(theme === 'noche' ? 'dia' : 'noche');
+document.getElementById('t-share').onclick = async () => {
+  // the view in the link: target, distance, azimuth and elevation
+  const off = camera.position.clone().sub(controls.target), d = off.length();
+  const az = THREE.MathUtils.radToDeg(Math.atan2(off.x, off.z)), el = THREE.MathUtils.radToDeg(Math.asin(off.y / d));
+  const h = new URLSearchParams(location.hash.slice(1));
+  h.set('v', [controls.target.x, controls.target.z, d, az, el].map(v => Math.round(v)).join(','));
+  if (state.year < yMax) h.set('ano', state.year);
+  if (pinned >= 0) h.set('ref', building(pinned).ref);
+  const url = `${location.origin}${location.pathname}#${h.toString().replace(/%2C/g, ',')}`;
+  try { await navigator.clipboard.writeText(url); say('Enlace copiado'); } catch (e) { prompt('Enlace a esta vista', url); }
+};
+document.getElementById('t-shot').onclick = () => {
+  renderer.render(scene, camera); // the drawing buffer is only readable in the frame that drew it
+  // the sky is the page's gradient behind a transparent canvas: paint it under the city, and sign the picture
+  const out = document.createElement('canvas'), x = out.getContext('2d');
+  out.width = canvas.width; out.height = canvas.height;
+  const css = getComputedStyle(document.documentElement), g = x.createLinearGradient(0, 0, 0, out.height);
+  g.addColorStop(0, css.getPropertyValue('--sky-top')); g.addColorStop(0.42, css.getPropertyValue('--sky'));
+  g.addColorStop(1, css.getPropertyValue('--sky'));
+  x.fillStyle = g; x.fillRect(0, 0, out.width, out.height);
+  x.drawImage(canvas, 0, 0);
+  const s = out.width / innerWidth;
+  x.font = `700 ${Math.round(30 * s)}px Fraunces, Georgia, serif`; x.fillStyle = css.getPropertyValue('--ink');
+  x.fillText(LABEL, 24 * s, 48 * s);
+  x.font = `600 ${Math.round(13 * s)}px Manrope, sans-serif`; x.fillStyle = css.getPropertyValue('--accent');
+  x.fillText(`${state.year >= yMax ? 'Hoy' : state.year} · spain-cities.quijada.uk · Catastro, IGN, OSM`, 24 * s, 72 * s);
+  out.toBlob(blob => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${LABEL.toLowerCase().replace(/[^a-z0-9áéíóúñü]+/gi, '-')}-${state.year >= yMax ? 'hoy' : state.year}.png`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    say('Imagen guardada');
+  });
+};
+addEventListener('keydown', e => {
+  if (e.target.closest('input, select, textarea') || e.metaKey || e.ctrlKey || e.altKey || about.open) return;
+  const k = e.key.toLowerCase();
+  if (k >= '1' && k <= '4') setMode(+k - 1);
+  else if (k === ' ') { e.preventDefault(); document.getElementById('play').click(); }
+  else if (k === 'h') goHome();
+  else if (k === 'r') setOrbit(!controls.autoRotate);
+  else if (k === 'n') setTheme(theme === 'noche' ? 'dia' : 'noche');
+  else if (k === 'escape') pinCard(-1);
+  else return;
+});
+// the legend starts below the masthead, whatever its height
+const masthead = document.querySelector('.masthead');
+new ResizeObserver(() => {
+  panelBox.style.top = narrow.matches ? '' : `${masthead.getBoundingClientRect().bottom + 12}px`;
+  panelBox.style.maxHeight = narrow.matches ? '' : `${innerHeight - masthead.getBoundingClientRect().bottom - 12 - 150}px`;
+}).observe(masthead);
+// the way back to the list of cities, when this map is one of the portal's
+const portalLink = document.getElementById('portal-link');
+if (document.body.dataset.portal) { portalLink.href = document.body.dataset.portal; portalLink.textContent = '← Todas las ciudades'; }
 
 // ---------- Loop ----------
 function resize() {
@@ -698,13 +835,49 @@ function resize() {
   if (lastCounts) drawHist(lastCounts);
 }
 addEventListener('resize', resize);
+// another selection means other files: start again
+addEventListener('hashchange', () => {
+  const w = (new URLSearchParams(location.hash.slice(1)).get('cargar') || '').split(',').filter(Boolean);
+  if (w.join() !== (PARTIAL ? munis.map(m => m.code).join() : want.join())) location.reload();
+});
 resize();
 
 const start = readHash();
-const home = view(config.home.x, config.home.z, config.home.span);
-if (start >= 0) { const m = muniById[start]; jump(view(m.cx, m.cz, Math.min(Math.max(m.span, 1200), 16000))); }
-else jump(home);
+// home: the whole build, or the box around the chosen municipalities
+const HOME = (() => {
+  if (!PARTIAL) return config.home;
+  // where the selection's buildings are: 2nd to 98th percentile of a sample, so marshes and stray barns don't count
+  const xs = [], zs = [], step = Math.max(1, Math.floor(N / 40000));
+  for (let i = 0; i < N; i += step) if (B.ok[i]) { xs.push(dv.getFloat32(i * S + F.x, true)); zs.push(dv.getFloat32(i * S + F.z, true)); }
+  if (xs.length < 10) return config.home;
+  const q = (a, f) => a[Math.floor(f * (a.length - 1))];
+  xs.sort((a, b) => a - b); zs.sort((a, b) => a - b);
+  const x0 = q(xs, 0.02), x1 = q(xs, 0.98), z0 = q(zs, 0.02), z1 = q(zs, 0.98);
+  return { x: (x0 + x1) / 2, z: (z0 + z1) / 2, span: Math.max(1200, Math.max(x1 - x0, z1 - z0) * 1.05) };
+})();
+const home = view(HOME.x, HOME.z, HOME.span);
+const shared = (new URLSearchParams(location.hash.slice(1)).get('v') || '').split(',').map(Number);
+if (shared.length === 5 && shared.every(Number.isFinite)) jump(view(shared[0], shared[1], shared[2] / 0.9, shared[3], shared[4]));
+else if (start >= 0) { const m = muniById[start]; jump(view(m.cx, m.cz, Math.min(Math.max(m.span, 1200), 16000))); }
+else {
+  // arrive from high above, then settle on the city
+  jump(view(HOME.x, HOME.z, HOME.span * 2.4, 170, 62));
+  flyTo(home, 2600);
+}
 setMuni(munis.length > 1 ? start : munis[0].id, false);
+setTheme(theme);
+{
+  const h = new URLSearchParams(location.hash.slice(1));
+  const y = +h.get('ano');
+  if (y >= yMin && y < yMax) setYear(y);
+  const ref = h.get('ref');
+  if (ref) {
+    for (let i = 0; i < N; i++) if (B.ok[i] && building(i).ref === ref) {
+      setTimeout(() => pinCard(i, innerWidth / 2, innerHeight / 2), shared.length === 5 ? 300 : 2700);
+      break;
+    }
+  }
+}
 
 let lastPick = 0;
 renderer.setAnimationLoop(now => {
@@ -718,7 +891,7 @@ renderer.setAnimationLoop(now => {
   if (pointer && pinned < 0 && now - lastPick > 60 && !flight) {
     lastPick = now;
     let i = pick(pointer[0], pointer[1]);
-    if (i >= 0 && state.only && !inMuni(i)) i = -1;
+    if (i >= 0 && (!B.ok[i] || state.only && !inMuni(i))) i = -1;
     if (i !== hoverGid) { hoverGid = i; uniforms.uHover.value = i; showCard(i, pointer[0], pointer[1]); }
     else if (i >= 0) placeCard(pointer[0], pointer[1]);
   }

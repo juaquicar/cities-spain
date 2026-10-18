@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="es" data-theme="noche">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ciudades de España, edificio a edificio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;1,9..144,500&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="portal.css">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#0e1522">
+<meta name="description" content="Mapas 3D de cada edificio en pie de ciudades españolas, coloreados por su año de construcción. Datos del Catastro, IGN, IAPH, Wikidata y OpenStreetMap.">
+<script>try { const t = localStorage.getItem('tema'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
+</head>
+<body>
+<header class="hero">
+  <div class="hero-top">
+    <p class="overline">Ciudades de España · edificio a edificio</p>
+    <button id="theme" class="ghost" aria-label="Cambiar a día o noche">Día</button>
+  </div>
+  <h1>Cada edificio en pie,<br><em>por el año en que se levantó</em></h1>
+  <p class="lede">Mapas 3D de las ciudades españolas con los datos abiertos del Catastro. Elige una ciudad y, si es grande,
+  qué municipios quieres ver: el navegador descarga solo eso.</p>
+  <p class="totals" id="totals"></p>
+  <label class="search">
+    <span class="visually-hidden">Buscar</span>
+    <input type="search" id="q" placeholder="Busca una ciudad o un municipio…" autocomplete="off" spellcheck="false">
+  </label>
+  <ul id="hits" class="hits" hidden></ul>
+</header>
+
+<main>
+  <section id="cities" class="cities" aria-label="Ciudades"></section>
+
+  <section id="picker" class="picker" hidden aria-labelledby="picker-title">
+    <div class="picker-head">
+      <button id="back" class="ghost">← Ciudades</button>
+      <h2 id="picker-title"></h2>
+      <p id="picker-sub" class="muted"></p>
+    </div>
+    <div class="picker-body">
+      <figure class="map">
+        <svg id="map" role="group" aria-label="Mapa de municipios: toca para elegir"></svg>
+        <figcaption id="map-tip" class="muted">Toca un municipio en el mapa o en la lista.</figcaption>
+      </figure>
+      <div class="choose">
+        <div id="presets" class="presets"></div>
+        <div class="list-tools">
+          <input type="search" id="filter" placeholder="Filtrar municipios…" autocomplete="off">
+          <button id="none" class="ghost small">Ninguno</button>
+        </div>
+        <ul id="list" class="list"></ul>
+      </div>
+    </div>
+    <div class="go">
+      <p id="summary"></p>
+      <a id="open" class="cta" href="#">Abrir el mapa</a>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <p>Proyecto sin ánimo de lucro de <a href="https://github.com/juaquicar" target="_blank" rel="noopener">Juan Manuel Quijada</a>,
+  basado en <a href="https://github.com/alexbarakov/amsterdam-by-building" target="_blank" rel="noopener">LAYRS: Amsterdam</a> de Alex Barakov (MIT),
+  que sigue a <a href="https://paris.bogachev.fr" target="_blank" rel="noopener">Paris, building by building</a> de Sasha Bogachev.
+  <a href="https://github.com/juaquicar/cities-spain" target="_blank" rel="noopener">Código</a>.</p>
+  <p class="muted">Datos: Catastro INSPIRE (D. G. del Catastro), MDT05 © IGN (CC BY 4.0), IAPH (Junta de Andalucía), Wikidata (CC0),
+  Wikimedia Commons, © colaboradores de OpenStreetMap (ODbL).</p>
+</footer>
+<script type="module" src="portal.js"></script>
+</body>
+</html>

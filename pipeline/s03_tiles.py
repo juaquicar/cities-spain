@@ -140,33 +140,33 @@ def main():
         old.unlink()
     OUT.mkdir(parents=True, exist_ok=True)
     index, blobs = [], {}
-    for (tx, tz), grp in b.groupby(["tx", "tz"]):
+    # One tile per municipality and square, so that a viewer can load a few municipalities and nothing else.
+    for (muni, tx, tz), grp in b.groupby(["muni", "tx", "tz"]):
         origin = np.array([(tx + 0.5) * TILE, (tz + 0.5) * TILE])  # the centre: vertices are i16 decimetres from it
         rows = [dict(gid=gid[r.ref], year=int(r.year), flag=int(r.date_flag), period=int(r.period),
                      floors=int(r.floors), muni=int(r.muni), use=int(r.use), mon=int(r.mon),
                      base=int(round(r.base * 10)), parts=parts[r.ref])
                 for r in grp.itertuples()]
-        name = f"{tx}_{tz}"
+        name = f"{muni}_{tx}_{tz}"
         blobs[name] = pack_tile(origin, rows)
         cx, cz = origin
-        index.append(dict(file=name, n=len(rows), dist=round(float(np.hypot(cx, cz)))))
+        index.append(dict(file=name, muni=int(muni), n=len(rows), dist=round(float(np.hypot(cx, cz)))))
     index.sort(key=lambda t: t["dist"])
 
-    # A few packs, nearest the landmark first, so the city loads centre-out in few requests; each one well under the
-    # host's per-file limit (Cloudflare: 25 MiB).
-    total = sum(len(v) for v in blobs.values())
-    target = min(PACK_MAX, max(total / 16, 1e6))
+    # Packs by municipality, nearest the landmark first within each, so that a selection fetches only its own; each
+    # one a few MB, well under the host's per-file limit (Cloudflare: 25 MiB, and no range requests).
     packs, blob = [], bytearray()
 
     def flush():
         if blob:
             (OUT / packs[-1]).write_bytes(blob)
 
-    for t in index:
-        if not packs or (blob and len(blob) + len(blobs[t["file"]]) > target):
+    last = None
+    for t in sorted(index, key=lambda t: (t["muni"], t["dist"])):
+        if t["muni"] != last or (blob and len(blob) + len(blobs[t["file"]]) > PACK_MAX / 2):
             flush()
             packs.append(f"pack{len(packs)}.bin")
-            blob = bytearray()
+            blob, last = bytearray(), t["muni"]
         t.update(pack=packs[-1], offset=len(blob), length=len(blobs[t["file"]]))
         blob += blobs[t["file"]]
     flush()
@@ -199,11 +199,30 @@ def main():
         b.geometry.centroid.x.to_numpy(), b.geometry.centroid.y.to_numpy())
     for old in OUT.glob("attrs*.bin"):
         old.unlink()
-    rows = max(1, int(PACK_MAX // attrs.dtype.itemsize))
-    attr_parts = []
-    for k in range(0, len(attrs), rows):
-        attr_parts.append("attrs.bin" if len(attrs) <= rows else f"attrs{k // rows}.bin")
-        (OUT / attr_parts[-1]).write_bytes(attrs[k:k + rows].tobytes())
+    # The table in parts of whole municipalities (rows are sorted by municipality), ~2 MB each: a selection fetches
+    # the parts it needs. A municipality larger than PACK_MAX is cut in rows.
+    attr_parts, start = [], 0
+    edges = np.flatnonzero(np.diff(b.muni.to_numpy())) + 1
+    bounds = list(zip([0, *edges], [*edges, len(b)]))
+    rows_max = max(1, int(PACK_MAX // attrs.dtype.itemsize))
+
+    def part(s, e):
+        name = f"attrs{len(attr_parts)}.bin"
+        (OUT / name).write_bytes(attrs[s:e].tobytes())
+        attr_parts.append(dict(file=name, start=int(s), end=int(e), munis=sorted({int(m) for m in b.muni.iloc[s:e].unique()})))
+
+    for s, e in bounds:
+        if e - s > rows_max:
+            if start < s:
+                part(start, s)
+            for k in range(s, e, rows_max):
+                part(k, min(e, k + rows_max))
+            start = e
+        elif (e - start) * attrs.dtype.itemsize > 2e6 and start < s:
+            part(start, s)
+            start = s
+    if start < len(b):
+        part(start, len(b))
 
     munis = []
     for code in chosen():
@@ -211,9 +230,13 @@ def main():
         if m.empty:
             continue
         x0, z0, x1, z1 = m.x.min(), m.z.min(), m.x.max(), m.z.max()
-        munis.append(dict(id=ORDER.index(code), code=code, name=BY_CODE[code][0], n=len(m),
+        mid = ORDER.index(code)
+        # what a viewer downloads for this municipality alone: its tiles and its share of the table
+        size = sum(t["length"] for t in index if t["muni"] == mid) + len(m) * attrs.dtype.itemsize
+        munis.append(dict(id=mid, code=code, name=BY_CODE[code][0], n=len(m),
                           cx=round(float(m.x.median()), 1), cz=round(float(m.z.median()), 1),
-                          span=round(float(max(x1 - x0, z1 - z0)), 1)))
+                          span=round(float(max(x1 - x0, z1 - z0)), 1),
+                          box=[round(float(v)) for v in (x0, z0, x1, z1)], bytes=int(size)))
     # whole area: the middle of the buildings' extent, wide enough to hold it (the capital alone when it is alone)
     x0, x1, z0, z1 = b.x.quantile(0.01), b.x.quantile(0.99), b.z.quantile(0.01), b.z.quantile(0.99)
     home = dict(cx=round(float((x0 + x1) / 2), 1), cz=round(float((z0 + z1) / 2), 1), span=float(max(x1 - x0, z1 - z0)))

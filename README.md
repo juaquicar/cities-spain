@@ -4,7 +4,10 @@ Cada edificio en pie de Sevilla (con el Aljarafe y el resto de la provincia), Ma
 época de construcción, uso o número de plantas, con filtro por municipio. Pipeline en Python que alimenta un visor
 three.js sin build step.
 
-**En vivo:** [madrid.quijada.uk](https://madrid.quijada.uk) · [barcelona.quijada.uk](https://barcelona.quijada.uk) ·
+**Portal:** [spain-cities.quijada.uk](https://spain-cities.quijada.uk): todas las ciudades; antes de cargar nada se
+elige ciudad y, en las grandes, qué municipios, con el peso de la descarga a la vista.
+
+**Sitios sueltos:** [madrid.quijada.uk](https://madrid.quijada.uk) · [barcelona.quijada.uk](https://barcelona.quijada.uk) ·
 [sevilla-provincia.quijada.uk](https://sevilla-provincia.quijada.uk) ·
 [sevilla-aljarafe.quijada.uk](https://sevilla-aljarafe.quijada.uk) ·
 [sevilla.quijada.uk](https://sevilla.quijada.uk) · [aljarafe.quijada.uk](https://aljarafe.quijada.uk) ·
@@ -44,7 +47,22 @@ REGION=madrid uv run python -m pipeline.build todos      # Madrid, en data/madri
 REGION=barcelona uv run python -m pipeline.build todos   # Barcelona, en data/barcelona/
 python3 -m http.server 8642 --directory web        # http://localhost:8642
 uv run python -m pipeline.sites --deploy           # publica los siete sitios (tras `npx wrangler login`; con varias cuentas, CLOUDFLARE_ACCOUNT_ID)
+uv run python -m pipeline.sites portal --deploy    # el portal, con los sitios que ya hay en dist/
 ```
+
+### Portal y carga por municipios
+
+`portal/` es la portada de spain-cities.quijada.uk. `pipeline.sites portal` copia cada área de `PORTAL` (en
+`sites.py`) desde `dist/<sitio>/` a `dist/spain-cities/<clave>/` y escribe `cities.json` con los municipios, sus
+contornos simplificados para el mapa del selector y los ficheros que necesita cada uno. Cloudflare no sirve
+peticiones por rangos, así que `s03_tiles` deja las teselas, los packs y los tramos de `attrs*.bin` separados por
+municipio; el visor lee `#cargar=41093,41094&titulo=…` y descarga solo esos. Sin `cargar`, carga todo.
+
+### Visor
+
+Dos temas, noche (por defecto) y día, que se recuerdan en el navegador. Herramientas: vista inicial, dar la vuelta,
+tema, copiar enlace a la vista (`#v=x,z,distancia,azimut,elevación`, más `ano` y `ref` si hay año o ficha), guardar
+imagen. Atajos: `1`–`4` modos, `Espacio` reproducir, `H`, `R`, `N`, `Esc`. Hitos de cada ciudad sobre el histograma.
 
 ### Sitios publicados
 
@@ -60,6 +78,7 @@ uv run python -m pipeline.sites --deploy           # publica los siete sitios (t
 | https://sevilla-provincia.quijada.uk | Toda la provincia (106) | `sevilla-provincia` |
 | https://madrid.quijada.uk | Madrid | `madrid-edificios` |
 | https://barcelona.quijada.uk | Barcelona | `barcelona-edificios` |
+| https://spain-cities.quijada.uk | Portal: Sevilla (provincia), Madrid, Barcelona | `spain-cities` |
 
 ### Regiones
 

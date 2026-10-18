@@ -4,6 +4,7 @@
     uv run python -m pipeline.sites --deploy        # … and publish them
     uv run python -m pipeline.sites tomares --deploy
     uv run python -m pipeline.sites madrid barcelona --deploy
+    uv run python -m pipeline.sites portal --deploy     # spain-cities.quijada.uk, from the sites in dist/
 
 The common steps (pipeline.build, with REGION for Madrid and Barcelona) must have run first for all the municipalities
 a site needs; this only redoes the per-site outputs (ground, terrain, tiles) with REGION / SITE_MUNIS / SITE_OUT, then
@@ -82,9 +83,86 @@ def config(name, domain, worker):
     return f
 
 
+# The portal (spain-cities.quijada.uk): one page listing every area, each area a built site in its own folder, and
+# nothing loads until the visitor has chosen. key, built site, name, line under it, ready-made selections.
+PORTAL_DOMAIN, PORTAL_WORKER = "spain-cities.quijada.uk", "spain-cities"
+PORTAL = [
+    ("sevilla", "sevilla-provincia", "Sevilla", "Provincia · Andalucía",
+     [("Sevilla capital", ["41900"]), ("Aljarafe", ALJARAFE), ("Sevilla y Aljarafe", ["41900", *ALJARAFE]),
+      ("Toda la provincia", None)]),
+    ("madrid", "madrid", "Madrid", "Ciudad · Comunidad de Madrid", []),
+    ("barcelona", "barcelona", "Barcelona", "Ciudad · Cataluña", []),
+]
+
+
+def outline(rings, scale, x0, z0):
+    """SVG path of a municipality's polygons, scaled into the picker's box, y down (the local frame is z south)."""
+    d = []
+    for poly in rings:
+        r = poly[0]
+        pts = [f"{(r[k] - x0) * scale:.1f},{(r[k + 1] - z0) * scale:.1f}" for k in range(0, len(r), 2)]
+        d.append("M" + "L".join(pts) + "Z")
+    return "".join(d)
+
+
+def portal(deploy=False):
+    from shapely.geometry import Polygon
+    out = Path("dist") / PORTAL_WORKER
+    shutil.rmtree(out, ignore_errors=True)
+    shutil.copytree("portal", out)
+    cities = []
+    for key, site, name, sub, presets in PORTAL:
+        src = Path("dist") / site
+        if not (src / "data" / "city.json").exists():
+            print(f"portal: falta dist/{site}; se omite", flush=True)
+            continue
+        shutil.copytree(src, out / key)
+        page = out / key / "index.html"  # a link back to the list
+        page.write_text(page.read_text().replace('<body>', '<body data-portal="../">', 1))
+        c = json.loads((src / "data" / "city.json").read_text())
+        files = {f.name: f.stat().st_size for f in (src / "data").iterdir()}
+        base = sum(files.get(f, 0) for f in ("city.json", "ground.json", "terrain.bin", "monumentos.json")) + 2_600_000
+        parts = [p if isinstance(p, dict) else dict(file=p) for p in c.get("attrParts", ["attrs.bin"])]
+        # the outlines for the picker map: municipal boundaries simplified to a few hundred points each
+        ground = json.loads((src / "data" / "ground.json").read_text())
+        rings = {m["id"]: m["rings"] for m in ground["munis"]}
+        xs = [v for rs in rings.values() for poly in rs for v in poly[0][0::2]]
+        zs = [v for rs in rings.values() for poly in rs for v in poly[0][1::2]]
+        x0, x1, z0, z1 = (min(xs), max(xs), min(zs), max(zs)) if xs else (0, 1, 0, 1)
+        scale = 400 / max(x1 - x0, z1 - z0)
+        tol = max(x1 - x0, z1 - z0) / 900
+        munis = []
+        for m in c["municipios"]:
+            simple = []
+            for poly in rings.get(m["id"], []):
+                r = poly[0]
+                g = Polygon(list(zip(r[0::2], r[1::2]))).simplify(tol)
+                if not g.is_empty and g.geom_type == "Polygon":
+                    simple.append([[v for xy in g.exterior.coords for v in xy]])
+            munis.append(dict(
+                code=m["code"], name=m["name"], n=m["n"], id=m["id"],
+                packs=sorted({t["pack"] for t in c["tiles"] if t.get("muni", m["id"]) == m["id"]}),
+                parts=[p["file"] for p in parts if not p.get("munis") or m["id"] in p["munis"]],
+                d=outline(simple, scale, x0, z0)))
+        cities.append(dict(key=key, name=name, sub=sub, buildings=c["stats"]["buildings"],
+                           monuments=c["stats"].get("monuments", 0), heritage=c.get("heritage", "iaph"),
+                           years=[c["yearMin"], c["yearMax"]], base=base, files=files,
+                           view=[round((x1 - x0) * scale), round((z1 - z0) * scale)],
+                           presets=[dict(name=n, codes=codes or []) for n, codes in presets],
+                           municipios=munis))
+    (out / "cities.json").write_text(json.dumps(cities, ensure_ascii=False, separators=(",", ":")))
+    size = sum(f.stat().st_size for f in out.rglob("*") if f.is_file())
+    print(f"portal: {len(cities)} áreas, {size / 1e6:.1f} MB en {out}", flush=True)
+    if deploy:
+        subprocess.run(["npx", "wrangler", "deploy", "-c", str(config(PORTAL_WORKER, PORTAL_DOMAIN, PORTAL_WORKER))],
+                       check=True)
+
+
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     deploy = "--deploy" in sys.argv
+    if args == ["portal"]:  # only the portal, from the sites already in dist/
+        return portal(deploy)
     for name, codes, domain, worker, label, place, region in SITES:
         if args and name not in args:
             continue
