@@ -649,6 +649,8 @@ function cardHtml(i, pinned) {
   // a heritage record, a must-see, or both (the record's fields win)
   const h = b.mon || SEE_BY_G.get(i) ? { ...SEE_BY_G.get(i), ...b.mon } : null;
   const stop = pinned && walk ? walk.stops.findIndex(s => s.g === i) : -1;
+  // on a walk the stop's own name ("Catedral y Giralda"), elsewhere the heritage record's
+  const name = stop >= 0 ? walk.stops[stop].n || h?.n : h?.n;
   const year = h?.y0 != null && b.flag >= 3 && h.y1 && h.y1 !== h.y0 ? `${h.y0}–${h.y1}` : (b.flag && b.flag !== 3 ? `c. ${b.year}` : b.year);
   const rows = [
     ['Municipio', muniById[b.muni]?.name ?? ''],
@@ -667,7 +669,7 @@ function cardHtml(i, pinned) {
   const ll = `${b.lat.toFixed(6)},${b.lon.toFixed(6)}`;
   return `${pinned ? '<button class="close" aria-label="Cerrar">×</button>' : ''}
     ${stop >= 0 ? stopHtml(stop) : ''}
-    ${img}${h?.n || stop >= 0 ? `<p class="name">${esc(h?.n || walk.stops[stop].n)}</p>` : ''}${h?.d ? `<p class="desc">${esc(h.d)}</p>` : ''}
+    ${img}${name ? `<p class="name">${esc(name)}</p>` : ''}${h?.d ? `<p class="desc">${esc(h.d)}</p>` : ''}
     ${pinned && h?.wp ? '<p class="summary" aria-live="polite"></p>' : ''}
     <h3>${year}</h3>
     <p class="era"><i style="background:${p.color}"></i>${p.label}${['', ' · año redondeado', ' · año estimado', ` · fecha ${HSRC}`, ` · periodo ${HSRC}`][b.flag] || ''}</p>
