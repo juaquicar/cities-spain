@@ -94,6 +94,62 @@ def pack_tile(origin, rows):
     return out
 
 
+def turismo(b, attrs):
+    """turismo.json for the viewer's "what to see" and walks (s08_turismo, pipeline/rutas.json): each place as the gid of
+    its building, or, for a square or a park, its own point (x, y, z local; m, the municipality of the nearest building,
+    for partial loads). Places more than FAR metres from this site's buildings are not this site's."""
+    src = DATA / "turismo.parquet"
+    tur = OUT / "turismo.json"
+    tur.unlink(missing_ok=True)
+    if not src.exists() or not len(b):
+        return
+    from scipy.spatial import cKDTree
+    FAR = 300.0
+    t = pd.read_parquet(src)
+    gid = pd.Series(b.index, index=b.ref)
+    xz = to_local(np.c_[t.x, t.y])
+    dist, near = cKDTree(np.c_[b.x, b.z]).query(xz)
+    places = {}
+    for k, r in enumerate(t.itertuples()):
+        e = {key: val for key, val in dict(n=r.name, wd=r.wd, sl=int(r.sl), d=r.desc, wp=r.wp, img=r.img).items() if val}
+        if isinstance(r.ref, str) and r.ref:
+            if r.ref not in gid.index:
+                continue
+            g = int(gid[r.ref])
+            e.update(g=g, lat=float(attrs["lat"][g]), lon=float(attrs["lon"][g]))
+        elif dist[k] <= FAR:
+            g = int(near[k])
+            e.update(x=round(float(xz[k, 0]), 1), z=round(float(xz[k, 1]), 1), y=round(float(b.base.iloc[g]), 1),
+                     lat=round(float(r.lat), 6), lon=round(float(r.lon), 6), m=int(b.muni.iloc[g]))
+        else:
+            continue
+        places[r.wd] = e
+    # one label per building: the best-known item on it
+    seen, top = set(), []
+    for e in sorted(places.values(), key=lambda e: -e["sl"]):
+        if "g" in e and e["g"] in seen:
+            continue
+        seen.add(e.get("g", e["wd"]))
+        top.append(e)
+    n_munis = b.muni.nunique()
+    top = top[:40 if n_munis == 1 else 80]
+    hav = lambda a, c: 2 * 6371 * np.arcsin(np.sqrt(np.sin(np.radians(c["lat"] - a["lat"]) / 2) ** 2 + np.cos(
+        np.radians(a["lat"])) * np.cos(np.radians(c["lat"])) * np.sin(np.radians(c["lon"] - a["lon"]) / 2) ** 2))
+    walks = []
+    routes = json.loads((Path(__file__).with_name("rutas.json")).read_text()).get(REGION.key, []) \
+        if Path(__file__).with_name("rutas.json").exists() else []
+    for r in routes:
+        stops = [dict(places[s["wd"]], n=s.get("n") or places[s["wd"]]["n"], txt=s["txt"])
+                 for s in r["stops"] if s["wd"] in places]
+        if len(stops) < 3:
+            continue
+        stops = [{k: v for k, v in st.items() if k not in ("sl",)} for st in stops]
+        km = sum(hav(a, c) for a, c in zip(stops, stops[1:]))
+        walks.append(dict(id=r["id"], t=r["t"], d=r["d"], km=round(float(km), 1), stops=stops))
+    tur.write_text(json.dumps(dict(destacados=top, rutas=walks), ensure_ascii=False, separators=(",", ":")))
+    print(f"  turismo: {len(top)} destacados, {len(walks)} rutas")
+
+
 def main():
     b = gpd.read_parquet(DATA / "buildings.parquet")
     b = b[b.muni.isin([ORDER.index(c) for c in chosen()])].sort_values(["muni", "ref"]).reset_index(drop=True)
@@ -198,6 +254,7 @@ def main():
     attrs["area"] = b.area
     attrs["lon"], attrs["lat"] = Transformer.from_crs(REGION.crs, 4326, always_xy=True).transform(
         b.geometry.centroid.x.to_numpy(), b.geometry.centroid.y.to_numpy())
+    turismo(b, attrs)
     for old in OUT.glob("attrs*.bin"):
         old.unlink()
     # The table in parts of whole municipalities (rows are sorted by municipality), ~2 MB each: a selection fetches

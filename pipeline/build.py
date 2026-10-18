@@ -5,12 +5,12 @@
     uv run python -m pipeline.build todos
     uv run python -m pipeline.build            # rebuild what is already chosen
 """
-from . import s00_fetch_catastro, s01_load, s02_attributes, s03_tiles, s04_ground, s05_monumentos, s06_terreno, s07_lidar
+from . import s00_fetch_catastro, s01_load, s02_attributes, s03_tiles, s04_ground, s05_monumentos, s06_terreno, s07_lidar, s08_turismo
 
 
 def main():
     s00_fetch_catastro.main()
-    for step in (s01_load, s02_attributes, s05_monumentos, s04_ground, s06_terreno, s07_lidar, s03_tiles):
+    for step in (s01_load, s02_attributes, s05_monumentos, s04_ground, s06_terreno, s07_lidar, s08_turismo, s03_tiles):
         print(f"— {step.__name__.split('.')[-1]}", flush=True)
         step.main()
 

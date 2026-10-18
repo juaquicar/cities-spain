@@ -1,0 +1,651 @@
+{
+ "sevilla": [
+  {
+   "id": "monumental",
+   "t": "Sevilla monumental",
+   "d": "El corazón Patrimonio de la Humanidad: catedral, alcázar y archivo, y el laberinto de Santa Cruz hasta las Setas.",
+   "stops": [
+    {
+     "wd": "Q231606",
+     "n": "Catedral y Giralda",
+     "txt": "La mayor catedral gótica del mundo, levantada sobre la mezquita almohade; la Giralda fue su alminar."
+    },
+    {
+     "wd": "Q498261",
+     "n": "Real Alcázar",
+     "txt": "Palacio real aún en uso, con el palacio mudéjar de Pedro I y siglos de jardines."
+    },
+    {
+     "wd": "Q477051",
+     "n": "Archivo de Indias",
+     "txt": "La antigua Casa Lonja de Juan de Herrera guarda los papeles del imperio en América."
+    },
+    {
+     "wd": "Q2421643",
+     "n": "Barrio de Santa Cruz",
+     "txt": "La antigua judería: callejones, patios y plazuelas junto a la muralla del Alcázar."
+    },
+    {
+     "wd": "Q1046529",
+     "n": "Casa de Pilatos",
+     "txt": "Palacio de los duques de Medinaceli donde se mezclan mudéjar, gótico y Renacimiento."
+    },
+    {
+     "wd": "Q5912858",
+     "n": "Iglesia del Salvador",
+     "txt": "La segunda iglesia de Sevilla, barroca, sobre la antigua mezquita mayor de Ibn Adabbas."
+    },
+    {
+     "wd": "Q5047899",
+     "n": "Ayuntamiento",
+     "txt": "Fachada plateresca de Diego de Riaño hacia la plaza de San Francisco."
+    },
+    {
+     "wd": "Q3087671",
+     "n": "Las Setas",
+     "txt": "La gran pérgola de madera de Jürgen Mayer (2011), con mirador sobre los tejados."
+    }
+   ]
+  },
+  {
+   "id": "rio29",
+   "t": "Del río a la Exposición de 1929",
+   "d": "Del Guadalquivir y la Maestranza al regionalismo de la Exposición Iberoamericana.",
+   "stops": [
+    {
+     "wd": "Q943873",
+     "n": "Torre del Oro",
+     "txt": "Torre albarrana almohade del siglo XIII; según la tradición, una cadena la unía a la otra orilla."
+    },
+    {
+     "wd": "Q2274061",
+     "n": "Real Maestranza",
+     "txt": "Plaza de toros barroca, construida a lo largo de los siglos XVIII y XIX."
+    },
+    {
+     "wd": "Q2665595",
+     "n": "Palacio de San Telmo",
+     "txt": "Antigua escuela de navegantes, barroca, hoy sede de la Presidencia de la Junta."
+    },
+    {
+     "wd": "Q2542555",
+     "n": "Real Fábrica de Tabacos",
+     "txt": "Uno de los mayores edificios industriales del siglo XVIII, la fábrica de Carmen; hoy universidad."
+    },
+    {
+     "wd": "Q1108879",
+     "n": "Hotel Alfonso XIII",
+     "txt": "Hotel regionalista levantado para la Exposición Iberoamericana de 1929."
+    },
+    {
+     "wd": "Q956018",
+     "n": "Plaza de España",
+     "txt": "Obra de Aníbal González para 1929: ladrillo, azulejo y un canal en semicírculo."
+    },
+    {
+     "wd": "Q2627907",
+     "n": "Parque de María Luisa",
+     "txt": "Los jardines del palacio de San Telmo, rediseñados por Forestier para la Exposición."
+    },
+    {
+     "wd": "Q637061",
+     "n": "Museo Arqueológico",
+     "txt": "Pabellón renacentista de la Exposición en la plaza de América; guarda el tesoro del Carambolo."
+    }
+   ]
+  },
+  {
+   "id": "conventos",
+   "t": "Sevilla mudéjar y conventual",
+   "d": "Las iglesias gótico-mudéjares y los conventos del norte del casco antiguo.",
+   "stops": [
+    {
+     "wd": "Q5909779",
+     "n": "Omnium Sanctorum",
+     "txt": "Una de las parroquias fundadas tras la conquista de 1248, con torre de influencia almohade."
+    },
+    {
+     "wd": "Q5910720",
+     "n": "San Marcos",
+     "txt": "Gótico-mudéjar del siglo XIV; su torre recuerda a la Giralda."
+    },
+    {
+     "wd": "Q5573675",
+     "n": "Santa Paula",
+     "txt": "Convento de clausura con portada de cerámica de Pedro Millán y Niculoso Pisano."
+    },
+    {
+     "wd": "Q3896782",
+     "n": "Santa Catalina",
+     "txt": "Gótico-mudéjar, con la capilla barroca de la Sacramental."
+    },
+    {
+     "wd": "Q5911120",
+     "n": "San Pedro",
+     "txt": "Parroquia gótico-mudéjar donde fue bautizado Velázquez en 1599."
+    },
+    {
+     "wd": "Q7126325",
+     "n": "Palacio de las Dueñas",
+     "txt": "Casa de los duques de Alba, con patio renacentista; aquí nació Antonio Machado."
+    }
+   ]
+  }
+ ],
+ "madrid": [
+  {
+   "id": "austrias",
+   "t": "Madrid de los Austrias",
+   "d": "La villa de la Corte: del kilómetro cero a la Plaza Mayor y el Palacio Real.",
+   "stops": [
+    {
+     "wd": "Q427163",
+     "n": "Puerta del Sol",
+     "txt": "El kilómetro cero de las carreteras radiales y el reloj de las campanadas."
+    },
+    {
+     "wd": "Q1123493",
+     "n": "Plaza Mayor",
+     "txt": "Plaza porticada de 1619, reconstruida por Juan de Villanueva tras el incendio de 1790."
+    },
+    {
+     "wd": "Q6770825",
+     "n": "Mercado de San Miguel",
+     "txt": "Mercado de hierro y cristal de 1916, hoy de tapas."
+    },
+    {
+     "wd": "Q3661194",
+     "n": "Casa de la Villa",
+     "txt": "El antiguo ayuntamiento, barroco madrileño del siglo XVII, en la plaza de la Villa."
+    },
+    {
+     "wd": "Q849711",
+     "n": "Catedral de la Almudena",
+     "txt": "Empezada en 1883 y consagrada en 1993 por Juan Pablo II."
+    },
+    {
+     "wd": "Q171517",
+     "n": "Palacio Real",
+     "txt": "El mayor palacio real de Europa occidental, levantado tras el incendio del Alcázar de 1734."
+    },
+    {
+     "wd": "Q211250",
+     "n": "Teatro Real",
+     "txt": "La ópera de Madrid, inaugurada en 1850 frente al Palacio Real."
+    },
+    {
+     "wd": "Q2268271",
+     "n": "Descalzas Reales",
+     "txt": "Monasterio fundado por Juana de Austria en 1559, con su tesoro de arte."
+    }
+   ]
+  },
+  {
+   "id": "arte",
+   "t": "Paseo del Arte",
+   "d": "Los tres grandes museos y el Retiro, Paisaje de la Luz y Patrimonio de la Humanidad desde 2021.",
+   "stops": [
+    {
+     "wd": "Q460889",
+     "n": "Museo Reina Sofía",
+     "txt": "El antiguo Hospital General de Sabatini, hoy arte del siglo XX; aquí está el Guernica."
+    },
+    {
+     "wd": "Q1794858",
+     "n": "Real Jardín Botánico",
+     "txt": "Jardín ilustrado de Carlos III, diseñado por Sabatini y Villanueva."
+    },
+    {
+     "wd": "Q160112",
+     "n": "Museo del Prado",
+     "txt": "El edificio de Villanueva para Carlos III guarda Velázquez, Goya y El Bosco."
+    },
+    {
+     "wd": "Q176251",
+     "n": "Museo Thyssen",
+     "txt": "El palacio de Villahermosa con la colección Thyssen, del primitivo italiano al pop."
+    },
+    {
+     "wd": "Q1849031",
+     "n": "Palacio de Cibeles",
+     "txt": "El antiguo Palacio de Comunicaciones (1919), hoy ayuntamiento y centro cultural."
+    },
+    {
+     "wd": "Q1140634",
+     "n": "Puerta de Alcalá",
+     "txt": "Puerta monumental de Sabatini para Carlos III, de 1778."
+    },
+    {
+     "wd": "Q2420025",
+     "n": "Palacio de Cristal",
+     "txt": "Invernadero de hierro y vidrio de 1887 junto al estanque del Retiro."
+    }
+   ]
+  },
+  {
+   "id": "granvia",
+   "t": "Gran Vía, el Broadway madrileño",
+   "d": "Los primeros rascacielos de Madrid, de 1910 a los años 50.",
+   "stops": [
+    {
+     "wd": "Q465250",
+     "n": "Edificio Metrópolis",
+     "txt": "La cúpula con la Victoria alada abre la Gran Vía desde 1911."
+    },
+    {
+     "wd": "Q2092717",
+     "n": "Edificio Telefónica",
+     "txt": "Uno de los primeros rascacielos de Europa (1929), de 89 metros."
+    },
+    {
+     "wd": "Q6058321",
+     "n": "Palacio de la Prensa",
+     "txt": "Cine y oficinas de 1929, de Pedro Muguruza."
+    },
+    {
+     "wd": "Q8771987",
+     "n": "Edificio Capitol",
+     "txt": "Proa art déco de 1933 con el cartel de Schweppes."
+    },
+    {
+     "wd": "Q649426",
+     "n": "Edificio España",
+     "txt": "Rascacielos de 1953 en la plaza de España, de los hermanos Otamendi."
+    },
+    {
+     "wd": "Q1063195",
+     "n": "Torre de Madrid",
+     "txt": "En 1957 fue el edificio de hormigón más alto del mundo."
+    },
+    {
+     "wd": "Q1140249",
+     "n": "Templo de Debod",
+     "txt": "Templo egipcio del siglo II a. C., regalado por Egipto y montado aquí en 1972."
+    }
+   ]
+  }
+ ],
+ "barcelona": [
+  {
+   "id": "gotic",
+   "t": "Barri Gòtic y Ciutat Vella",
+   "d": "De la Barcelona romana y medieval a la Rambla y el Liceu.",
+   "stops": [
+    {
+     "wd": "Q327940",
+     "n": "Palau de la Música",
+     "txt": "Obra maestra modernista de Domènech i Montaner (1908), Patrimonio de la Humanidad."
+    },
+    {
+     "wd": "Q17155",
+     "n": "Catedral",
+     "txt": "Catedral gótica de la Santa Cruz y Santa Eulalia, con fachada neogótica de 1890."
+    },
+    {
+     "wd": "Q2067174",
+     "n": "Plaça del Rei",
+     "txt": "El antiguo palacio de los condes de Barcelona, con el Saló del Tinell."
+    },
+    {
+     "wd": "Q599118",
+     "n": "Palau de la Generalitat",
+     "txt": "Sede del gobierno catalán desde el siglo XV, frente a la plaza de Sant Jaume."
+    },
+    {
+     "wd": "Q2309299",
+     "n": "Casa de la Ciutat",
+     "txt": "El ayuntamiento, con el Saló de Cent del siglo XIV."
+    },
+    {
+     "wd": "Q908802",
+     "n": "Santa Maria del Mar",
+     "txt": "El gótico catalán en estado puro, levantado en 54 años en el siglo XIV."
+    },
+    {
+     "wd": "Q1334899",
+     "n": "La Boqueria",
+     "txt": "El mercado de la Rambla, con cubierta de hierro de 1914."
+    },
+    {
+     "wd": "Q1130050",
+     "n": "Gran Teatre del Liceu",
+     "txt": "La ópera de Barcelona, de 1847, reconstruida tras el incendio de 1994."
+    },
+    {
+     "wd": "Q597051",
+     "n": "Palau Güell",
+     "txt": "El primer gran encargo de Gaudí para Eusebi Güell (1890)."
+    }
+   ]
+  },
+  {
+   "id": "modernisme",
+   "t": "Modernisme por el Eixample",
+   "d": "La Manzana de la Discordia, la Pedrera y la Sagrada Família.",
+   "stops": [
+    {
+     "wd": "Q2330791",
+     "n": "Casa Lleó i Morera",
+     "txt": "Domènech i Montaner, 1906: la primera de la Manzana de la Discordia."
+    },
+    {
+     "wd": "Q506814",
+     "n": "Casa Amatller",
+     "txt": "Puig i Cadafalch, 1900, con su piñón escalonado de inspiración flamenca."
+    },
+    {
+     "wd": "Q461371",
+     "n": "Casa Batlló",
+     "txt": "Gaudí la rehízo en 1904–1906: la fachada del dragón y los balcones de calavera."
+    },
+    {
+     "wd": "Q207870",
+     "n": "La Pedrera",
+     "txt": "El último edificio civil de Gaudí (1912), con la azotea de chimeneas guerreras."
+    },
+    {
+     "wd": "Q2561516",
+     "n": "Casa de les Punxes",
+     "txt": "Puig i Cadafalch, 1905: un castillo neogótico de seis torres en pleno Eixample."
+    },
+    {
+     "wd": "Q48435",
+     "n": "Sagrada Família",
+     "txt": "El templo de Gaudí, en obras desde 1882; la fachada del Nacimiento y la cripta son Patrimonio de la Humanidad."
+    },
+    {
+     "wd": "Q507282",
+     "n": "Sant Pau",
+     "txt": "El hospital modernista de Domènech i Montaner, Patrimonio de la Humanidad."
+    }
+   ]
+  }
+ ],
+ "valencia": [
+  {
+   "id": "ciutatvella",
+   "t": "Ciutat Vella",
+   "d": "De las Torres de Serranos al Mercado Central, por el gótico de la Lonja y la Seu.",
+   "stops": [
+    {
+     "wd": "Q2455550",
+     "n": "Torres de Serranos",
+     "txt": "La puerta principal de la muralla cristiana, gótica, de 1398."
+    },
+    {
+     "wd": "Q978306",
+     "n": "Basílica de los Desamparados",
+     "txt": "El templo barroco de la patrona, en la plaza de la Virgen."
+    },
+    {
+     "wd": "Q1466926",
+     "n": "Catedral y Micalet",
+     "txt": "Catedral gótica con portadas románica y barroca; guarda un Santo Cáliz."
+    },
+    {
+     "wd": "Q1993940",
+     "n": "Palacio de Dos Aguas",
+     "txt": "Portada rococó de alabastro; hoy Museo Nacional de Cerámica."
+    },
+    {
+     "wd": "Q588009",
+     "n": "Lonja de la Seda",
+     "txt": "Gótico civil del siglo XV con su sala de columnas helicoidales, Patrimonio de la Humanidad."
+    },
+    {
+     "wd": "Q2197068",
+     "n": "Mercado Central",
+     "txt": "Mercado modernista de 1928, de hierro, cerámica y vidrio."
+    },
+    {
+     "wd": "Q927284",
+     "n": "Ayuntamiento",
+     "txt": "La Casa Consistorial, con su balcón de las mascletàs de Fallas."
+    },
+    {
+     "wd": "Q1102684",
+     "n": "Estación del Norte",
+     "txt": "Estación modernista de 1917 decorada con naranjas y azahar."
+    }
+   ]
+  },
+  {
+   "id": "turia",
+   "t": "Del Turia a la Ciudad de las Ciencias",
+   "d": "El antiguo cauce del río, hecho jardín tras la riada de 1957, hasta Calatrava.",
+   "stops": [
+    {
+     "wd": "Q2713406",
+     "n": "Jardín del Turia",
+     "txt": "Nueve kilómetros de parque en el antiguo cauce, desviado tras la riada de 1957."
+    },
+    {
+     "wd": "Q9054601",
+     "n": "Palau de la Música",
+     "txt": "Auditorio de cristal de 1987 en el viejo cauce."
+    },
+    {
+     "wd": "Q747342",
+     "n": "Palau de les Arts",
+     "txt": "La ópera de Calatrava, con su cubierta en forma de pluma."
+    },
+    {
+     "wd": "Q2712673",
+     "n": "L'Hemisfèric",
+     "txt": "Cine IMAX con forma de ojo, el primer edificio de la Ciudad de las Artes (1998)."
+    },
+    {
+     "wd": "Q939288",
+     "n": "Museo de las Ciencias",
+     "txt": "Esqueleto de hormigón blanco de 220 metros, de Calatrava."
+    },
+    {
+     "wd": "Q2447851",
+     "n": "L'Oceanogràfic",
+     "txt": "El mayor acuario de Europa, con cubiertas de Félix Candela."
+    }
+   ]
+  }
+ ],
+ "zaragoza": [
+  {
+   "id": "culturas",
+   "t": "Zaragoza de las cuatro culturas",
+   "d": "Romana, musulmana, judía y cristiana: del Pilar a la Aljafería.",
+   "stops": [
+    {
+     "wd": "Q2638325",
+     "n": "Puente de Piedra",
+     "txt": "El puente medieval sobre el Ebro, con los leones de la ciudad."
+    },
+    {
+     "wd": "Q810684",
+     "n": "Basílica del Pilar",
+     "txt": "El gran templo barroco del Pilar, con cúpulas de teja vidriada y frescos de Goya."
+    },
+    {
+     "wd": "Q3836672",
+     "n": "La Lonja",
+     "txt": "Lonja de mercaderes renacentista del siglo XVI."
+    },
+    {
+     "wd": "Q2196869",
+     "n": "La Seo",
+     "txt": "Catedral que suma románico, gótico, mudéjar y barroco; su muro mudéjar es Patrimonio de la Humanidad."
+    },
+    {
+     "wd": "Q583459",
+     "n": "Teatro romano",
+     "txt": "Teatro del siglo I para unos 6.000 espectadores."
+    },
+    {
+     "wd": "Q2470882",
+     "n": "San Pablo",
+     "txt": "Torre mudéjar octogonal, Patrimonio de la Humanidad."
+    },
+    {
+     "wd": "Q5861774",
+     "n": "Mercado Central",
+     "txt": "Mercado modernista de hierro de 1903, de Félix Navarro."
+    },
+    {
+     "wd": "Q1354033",
+     "n": "Aljafería",
+     "txt": "Palacio taifa del siglo XI, luego de los reyes de Aragón; hoy sede de las Cortes."
+    }
+   ]
+  },
+  {
+   "id": "expo",
+   "t": "La ribera del Ebro y la Expo 2008",
+   "d": "Del casco antiguo al meandro de Ranillas, por los puentes del Ebro.",
+   "stops": [
+    {
+     "wd": "Q2638325",
+     "n": "Puente de Piedra",
+     "txt": "El paso histórico del Ebro."
+    },
+    {
+     "wd": "Q2367010",
+     "n": "Pabellón Puente",
+     "txt": "Puente-pabellón de Zaha Hadid para la Expo 2008."
+    },
+    {
+     "wd": "Q3063065",
+     "n": "Torre del Agua",
+     "txt": "Torre de 76 metros, símbolo de la Expo dedicada al agua."
+    },
+    {
+     "wd": "Q6057921",
+     "n": "Palacio de Congresos",
+     "txt": "Edificio de la Expo 2008 con su cubierta quebrada."
+    }
+   ]
+  }
+ ],
+ "bilbao": [
+  {
+   "id": "zazpikaleak",
+   "t": "Las Siete Calles",
+   "d": "El Casco Viejo, la villa fundada en 1300 junto a la ría.",
+   "stops": [
+    {
+     "wd": "Q3750900",
+     "n": "Teatro Arriaga",
+     "txt": "Teatro neobarroco de 1890, inspirado en la Ópera de París."
+    },
+    {
+     "wd": "Q3750901",
+     "n": "San Antón",
+     "txt": "La iglesia del escudo de Bilbao, junto al puente y el mercado."
+    },
+    {
+     "wd": "Q8228909",
+     "n": "Mercado de la Ribera",
+     "txt": "Uno de los mayores mercados cubiertos de Europa, de 1929, sobre la ría."
+    },
+    {
+     "wd": "Q2350964",
+     "n": "Catedral de Santiago",
+     "txt": "Gótica del siglo XIV, parada del Camino de Santiago de la costa."
+    },
+    {
+     "wd": "Q7203631",
+     "n": "Plaza Nueva",
+     "txt": "Plaza porticada neoclásica de 1851, la de los pintxos del domingo."
+    }
+   ]
+  },
+  {
+   "id": "ria",
+   "t": "La ría y el Guggenheim",
+   "d": "De la villa al Bilbao del Guggenheim, por la orilla de la antigua zona industrial.",
+   "stops": [
+    {
+     "wd": "Q3751519",
+     "n": "Ayuntamiento",
+     "txt": "Casa consistorial neobarroca de 1892 junto a la ría."
+    },
+    {
+     "wd": "Q227583",
+     "n": "Zubizuri",
+     "txt": "La pasarela blanca de Calatrava (1997)."
+    },
+    {
+     "wd": "Q179199",
+     "n": "Museo Guggenheim",
+     "txt": "El titanio de Frank Gehry (1997) que cambió la ciudad y dio nombre al efecto Guggenheim."
+    },
+    {
+     "wd": "Q127064",
+     "n": "Museo de Bellas Artes",
+     "txt": "Uno de los grandes museos de pintura de España, junto al parque de Doña Casilda."
+    },
+    {
+     "wd": "Q3121267",
+     "n": "Torre Iberdrola",
+     "txt": "Con 165 metros, el edificio más alto del País Vasco, de César Pelli."
+    },
+    {
+     "wd": "Q1783240",
+     "n": "Palacio Euskalduna",
+     "txt": "Palacio de congresos con forma de barco, en los antiguos astilleros Euskalduna."
+    },
+    {
+     "wd": "Q182864",
+     "n": "San Mamés",
+     "txt": "La Catedral del Athletic, estadio de 2013 junto al viejo campo."
+    }
+   ]
+  }
+ ],
+ "salamanca": [
+  {
+   "id": "dorada",
+   "t": "Salamanca dorada",
+   "d": "La piedra de Villamayor, Patrimonio de la Humanidad: Plaza Mayor, Universidad y las dos catedrales.",
+   "stops": [
+    {
+     "wd": "Q1561555",
+     "n": "Plaza Mayor",
+     "txt": "Plaza barroca de los Churriguera, empezada en 1729."
+    },
+    {
+     "wd": "Q1046564",
+     "n": "Casa de las Conchas",
+     "txt": "Palacio gótico de finales del siglo XV con más de 300 conchas en la fachada."
+    },
+    {
+     "wd": "Q5912788",
+     "n": "La Clerecía",
+     "txt": "El antiguo colegio jesuita, barroco; sus torres tienen mirador."
+    },
+    {
+     "wd": "Q5839387",
+     "n": "Escuelas Mayores",
+     "txt": "La fachada plateresca de la Universidad, con la rana sobre la calavera."
+    },
+    {
+     "wd": "Q3047420",
+     "n": "Catedral Vieja",
+     "txt": "Románica, de los siglos XII y XIII, con la Torre del Gallo."
+    },
+    {
+     "wd": "Q2462558",
+     "n": "Catedral Nueva",
+     "txt": "Gótico tardío y barroco; busca el astronauta en la portada de Ramos."
+    },
+    {
+     "wd": "Q5754302",
+     "n": "Casa Lis",
+     "txt": "Palacete modernista de 1905; hoy museo de Art Nouveau y Art Déco."
+    },
+    {
+     "wd": "Q6091642",
+     "n": "Puente romano",
+     "txt": "Puente sobre el Tormes con arcos del siglo I, en la Vía de la Plata."
+    }
+   ]
+  }
+ ]
+}
