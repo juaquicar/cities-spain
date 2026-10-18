@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="portal.css">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <meta name="theme-color" content="#0e1522">
+<meta name="author" content="Juanma Quijada">
 <meta name="description" content="Mapas 3D de cada edificio en pie de ciudades españolas, coloreados por su año de construcción. Datos del Catastro, IGN, IAPH, Wikidata y OpenStreetMap.">
 <script>try { const t = localStorage.getItem('tema'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
 </head>
@@ -17,6 +18,7 @@
 <header class="hero">
   <div class="hero-top">
     <p class="overline">Ciudades de España · edificio a edificio</p>
+    <p class="byline">Hecho por <a href="https://www.linkedin.com/in/juanmaquijada" target="_blank" rel="noopener">Juanma Quijada</a></p>
     <button id="theme" class="ghost" aria-label="Cambiar a día o noche">Día</button>
   </div>
   <h1>Cada edificio en pie,<br><em>por el año en que se levantó</em></h1>
@@ -61,10 +63,11 @@
 </main>
 
 <footer class="foot">
-  <p>Proyecto sin ánimo de lucro de <a href="https://github.com/juaquicar" target="_blank" rel="noopener">Juan Manuel Quijada</a>,
-  basado en <a href="https://github.com/alexbarakov/amsterdam-by-building" target="_blank" rel="noopener">LAYRS: Amsterdam</a> de Alex Barakov (MIT),
-  que sigue a <a href="https://paris.bogachev.fr" target="_blank" rel="noopener">Paris, building by building</a> de Sasha Bogachev.
-  <a href="https://github.com/juaquicar/cities-spain" target="_blank" rel="noopener">Código</a>.</p>
+  <p class="credits">Hecho por <a href="https://www.linkedin.com/in/juanmaquijada" target="_blank" rel="noopener">Juanma Quijada</a> (LinkedIn), sobre
+  <a href="https://github.com/alexbarakov/amsterdam-by-building" target="_blank" rel="noopener">LAYRS: Amsterdam</a> de
+  <a href="https://www.linkedin.com/in/alexanderbarakov" target="_blank" rel="noopener">Alex Barakov</a> (MIT), que sigue a
+  <a href="https://paris.bogachev.fr" target="_blank" rel="noopener">Paris, building by building</a> de Sasha Bogachev.
+  Proyecto sin ánimo de lucro. <a href="https://github.com/juaquicar/cities-spain" target="_blank" rel="noopener">Código</a>.</p>
   <p class="muted">Datos: Catastro INSPIRE (D. G. del Catastro), MDT05 © IGN (CC BY 4.0), IAPH (Junta de Andalucía), Wikidata (CC0),
   Wikimedia Commons, © colaboradores de OpenStreetMap (ODbL).</p>
 </footer>

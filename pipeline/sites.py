@@ -5,6 +5,7 @@
     uv run python -m pipeline.sites tomares --deploy
     uv run python -m pipeline.sites madrid barcelona --deploy
     uv run python -m pipeline.sites portal --deploy     # spain-cities.quijada.uk, from the sites in dist/
+    uv run python -m pipeline.sites --pages             # only web/ changed: new pages over the data already built
 
 The common steps (pipeline.build, with REGION for Madrid and Barcelona) must have run first for all the municipalities
 a site needs; this only redoes the per-site outputs (ground, terrain, tiles) with REGION / SITE_MUNIS / SITE_OUT, then
@@ -45,11 +46,12 @@ TILE = {"sevilla-provincia": 2400}  # metres; default 600 (s03_tiles)
 STEPS = ["pipeline.s04_ground", "pipeline.s06_terreno", "pipeline.s03_tiles"]
 
 
-def build(name, codes, label=None, place=None, region="sevilla"):
+def build(name, codes, label=None, place=None, region="sevilla", pages_only=False):
+    """pages_only: the viewer's files again over the data already built (after a change to web/ only)."""
     out = Path("build") / name / "data"
     out.mkdir(parents=True, exist_ok=True)
     env = dict(os.environ, REGION=region, SITE_OUT=str(out), SITE_MUNIS=",".join(codes or []), SITE_LABEL=label or "", SITE_TILE=str(TILE.get(name, 600)))
-    for step in STEPS:
+    for step in [] if pages_only else STEPS:
         print(f"— {name}: {step.split('.')[-1]}", flush=True)
         subprocess.run([sys.executable, "-m", step], env=env, check=True)
     dist = Path("dist") / name
@@ -160,13 +162,13 @@ def portal(deploy=False):
 
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
-    deploy = "--deploy" in sys.argv
+    deploy, pages_only = "--deploy" in sys.argv, "--pages" in sys.argv
     if args == ["portal"]:  # only the portal, from the sites already in dist/
         return portal(deploy)
     for name, codes, domain, worker, label, place, region in SITES:
         if args and name not in args:
             continue
-        dist = build(name, codes, label, place, region)
+        dist = build(name, codes, label, place, region, pages_only)
         size = sum(f.stat().st_size for f in dist.rglob("*") if f.is_file())
         print(f"{name}: {size / 1e6:.1f} MB en {dist}", flush=True)
         if deploy:

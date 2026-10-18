@@ -459,7 +459,7 @@ function renderPanel(c) {
       ${herit ? `<p class="note">${fmt(n.reduce((a, b) => a + b, 0))} edificios con ficha ${IAPH ? `del Instituto Andaluz del Patrimonio
         Histórico` : 'en Wikidata'}, ${fmt(c.bic)} de ellos Bien de Interés Cultural. Fechados por su construcción, no por la última reforma.</p>`
       : `<p class="note">Más pálidos: año aproximado, redondeado en el Catastro (${fmt(STATS.rounded)}) o estimado a partir de los vecinos (${fmt(STATS.estimated)}).
-        Los ${fmt(STATS.redated)} edificios catalogados llevan la fecha ${IAPH ? 'del IAPH' : 'de Wikidata'}.</p>`}`;
+        ${STATS.redated ? `Los ${fmt(STATS.redated)} edificios catalogados llevan la fecha ${IAPH ? 'del IAPH' : 'de Wikidata'}.` : ''}</p>`}`;
     panel.querySelectorAll('button').forEach(b => b.onclick = () => {
       state.periodMask[+b.dataset.k] ^= 1; update();
     });
@@ -795,7 +795,7 @@ document.getElementById('t-shot').onclick = () => {
   x.font = `700 ${Math.round(30 * s)}px Fraunces, Georgia, serif`; x.fillStyle = css.getPropertyValue('--ink');
   x.fillText(LABEL, 24 * s, 48 * s);
   x.font = `600 ${Math.round(13 * s)}px Manrope, sans-serif`; x.fillStyle = css.getPropertyValue('--accent');
-  x.fillText(`${state.year >= yMax ? 'Hoy' : state.year} · spain-cities.quijada.uk · Catastro, IGN, OSM`, 24 * s, 72 * s);
+  x.fillText(`${state.year >= yMax ? 'Hoy' : state.year} · spain-cities.quijada.uk · Juanma Quijada · Catastro, IGN, OSM`, 24 * s, 72 * s);
   out.toBlob(blob => {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
