@@ -81,6 +81,7 @@ function setTag(h) {
   chips.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.h === h)));
   $('cities').querySelectorAll('.city').forEach(b => { b.hidden = !!t && !b.dataset.tags.split(' ').includes(t); });
   document.querySelectorAll('#spain .dot').forEach(g => g.classList.toggle('off', !!t && !g.dataset.tags.split(' ').includes(t)));
+  $('spain').relabel?.();
   $('cities').querySelectorAll('.ccaa').forEach(hd => {
     let el = hd.nextElementSibling, n = 0;
     for (; el && el.classList.contains('city'); el = el.nextElementSibling) n += !el.hidden;
@@ -111,7 +112,6 @@ if (spain && cities.some(c => c.pt)) {
   }
   const most = Math.max(...dots.map(d => d.n));
   const radius = d => (d.main ? 5 : 1.5) + 22 * Math.sqrt(d.n / most);
-  const named = new Set([...dots].filter(d => d.main).sort((a, b) => b.n - a.n).slice(0, 8).map(d => d.c.key));
   dots.sort((a, b) => b.n - a.n);  // the big ones drawn first, so a small one on top of them can still be touched
   const [cx, cy, cw, ch] = spain.canarias;
   spainSvg.setAttribute('viewBox', `0 0 ${spain.w} ${spain.h}`);
@@ -120,10 +120,10 @@ if (spain && cities.some(c => c.pt)) {
     <rect class="frame" x="${cx}" y="${cy}" width="${cw}" height="${ch}" rx="10"/>
     ${dots.map((d, k) => {
       const r = radius(d), label = d.main ? d.c.name : d.m.name;
-      return `<g class="dot${d.main ? '' : ' muni'}${named.has(d.c.key) && d.main ? ' named' : ''}" data-k="${k}"
+      return `<g class="dot${d.main ? '' : ' muni'}" data-k="${k}"
         data-tags="${(d.c.tags || []).join(' ')}" transform="translate(${d.pt[0]} ${d.pt[1]})" ${d.main ? 'tabindex="0" role="link"' : ''}
         aria-label="${esc(label)}, ${fmt(d.n)} edificios"><circle r="${r.toFixed(2)}"/>
-        <text x="${(r + 6).toFixed(1)}" y="8">${esc(label)}</text></g>`;
+        <text>${esc(label)}</text></g>`;
     }).join('')}`;
   $('spain-fig').hidden = false;
   const dotOf = e => { const g = e.target.closest('.dot'); return g && dots[+g.dataset.k]; };
@@ -146,6 +146,50 @@ if (spain && cities.some(c => c.pt)) {
   const W = spain.w, H = spain.h, MAXK = 12;
   let k = 1, vx = 0, vy = 0;
   const groups = [...spainSvg.querySelectorAll('.dot')];
+
+  // ----- names: biggest first, each beside its dot on the first free side, or not at all -----
+  // Municipality names join from k >= 3. Boxes are in drawing units; a name may not cover another name or a city's dot.
+  const texts = groups.map(g => g.querySelector('text'));
+  let widths = [];
+  const measure = () => { widths = texts.map(t => t.getComputedTextLength() + 4); };
+  const SIDES = [['start', 1, 0], ['end', -1, 0], ['middle', 0, -1], ['middle', 0, 1]];
+  function place(s) {
+    const w = W / k, h = H / k, x0 = vx, y0 = vy, x1 = vx + w, y1 = vy + h;
+    const shown = (d, g) => !g.classList.contains('off') && d.pt[0] > x0 && d.pt[0] < x1 && d.pt[1] > y0 && d.pt[1] < y1;
+    const taken = [];
+    const free = b => b[0] > x0 && b[2] < x1 && b[1] > y0 && b[3] < y1
+      && !taken.some(t => b[0] < t[2] && b[2] > t[0] && b[1] < t[3] && b[3] > t[1]);
+    groups.forEach((g, i) => {
+      const d = dots[i];
+      if (d.main && shown(d, g)) {
+        const r = radius(d) * s;
+        taken.push([d.pt[0] - r, d.pt[1] - r, d.pt[0] + r, d.pt[1] + r]);
+      }
+    });
+    const order = groups.map((g, i) => i).sort((a, b) => (dots[b].main - dots[a].main) || (dots[b].n - dots[a].n));
+    for (const i of order) {
+      const d = dots[i], g = groups[i], t = texts[i];
+      let ok = false;
+      if (shown(d, g) && (d.main || k >= 3)) {
+        const fs = d.main ? 25 : 16, r = radius(d), tw = widths[i], gap = 5;
+        for (const [anchor, sx, sy] of SIDES) {
+          // the box and the baseline, in the dot's own units (scaled by s on screen)
+          const bx = sx > 0 ? r + gap : sx < 0 ? -(r + gap) - tw : -tw / 2;
+          const by = sy < 0 ? -(r + gap) - fs * .95 : sy > 0 ? r + gap : -fs * .5;
+          const b = [d.pt[0] + bx * s, d.pt[1] + by * s, d.pt[0] + (bx + tw) * s, d.pt[1] + (by + fs * .95) * s];
+          if (!free(b)) continue;
+          taken.push(b);
+          t.setAttribute('text-anchor', anchor);
+          t.setAttribute('x', (sx > 0 ? r + gap : sx < 0 ? -(r + gap) : 0).toFixed(1));
+          t.setAttribute('y', (by + fs * .74).toFixed(1));
+          ok = true;
+          break;
+        }
+      }
+      g.classList.toggle('lab', ok);
+    }
+  }
+  spainSvg.relabel = () => apply();
   function apply() {
     k = Math.min(MAXK, Math.max(1, k));
     const w = W / k, h = H / k;
@@ -153,8 +197,7 @@ if (spain && cities.some(c => c.pt)) {
     spainSvg.setAttribute('viewBox', `${vx} ${vy} ${w} ${h}`);
     const s = 1 / Math.pow(k, 0.8);
     groups.forEach(g => { const d = dots[+g.dataset.k]; g.setAttribute('transform', `translate(${d.pt[0]} ${d.pt[1]}) scale(${s})`); });
-    spainSvg.classList.toggle('z2', k >= 2.2);
-    spainSvg.classList.toggle('z5', k >= 6);
+    place(s);
     spainSvg.style.touchAction = k > 1 ? 'none' : 'pan-y';
     $('spain-reset').hidden = k === 1;
   }
@@ -203,7 +246,9 @@ if (spain && cities.some(c => c.pt)) {
   const up = e => { pts.delete(e.pointerId); if (pts.size < 2) last = null; };
   spainSvg.addEventListener('pointerup', up);
   spainSvg.addEventListener('pointercancel', up);
+  measure();
   apply();
+  document.fonts?.ready.then(() => { measure(); apply(); });
 }
 
 // ---------- Search: cities and municipalities ----------

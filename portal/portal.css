@@ -80,8 +80,8 @@ h1 em { font-style: italic; font-weight: 500; color: var(--accent); }
   transition: fill-opacity .15s, transform .15s; transform-box: fill-box; transform-origin: center; }
 .spain .dot:hover circle, .spain .dot:focus-visible circle { fill-opacity: 1; transform: scale(1.18); }
 .spain .dot.muni circle { fill-opacity: .7; stroke-width: .8; }
-.spain .dot text { display: none; }
-.spain .dot.named text, .spain svg.z2 .dot:not(.muni) text, .spain svg.z5 .dot.muni text { display: inline; }
+.spain .dot text { visibility: hidden; }
+.spain .dot.lab text { visibility: visible; }
 .spain .dot text { font: 700 25px "Manrope", sans-serif; fill: var(--ink); paint-order: stroke; stroke: var(--bg); stroke-width: 4px;
   stroke-linejoin: round; pointer-events: none; }
 .spain .dot.muni text { font-size: 16px; font-weight: 600; }
