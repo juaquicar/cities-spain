@@ -10,16 +10,16 @@ import json
 import os
 import sys
 import zipfile
-from pathlib import Path
 from urllib.parse import quote
 
 import requests
 
 from .municipios import BY_CODE, ORDER, resolve
+from .region import DATA, REGION
 
-FEED = "https://www.catastro.hacienda.gob.es/INSPIRE/Buildings/41/{folder}/A.ES.SDGC.BU.{code}.zip"
-RAW = Path("data/raw/catastro")
-CHOSEN = Path("data/municipios.json")
+FEED = "https://www.catastro.hacienda.gob.es/INSPIRE/Buildings/{office}/{folder}/A.ES.SDGC.BU.{code}.zip"
+RAW = DATA / "raw/catastro"
+CHOSEN = DATA / "municipios.json"
 
 
 def chosen() -> list[str]:
@@ -33,7 +33,7 @@ def fetch(code: str):
     name, folder = BY_CODE[code]
     zpath = RAW / f"{code}.zip"
     if not zpath.exists():
-        url = FEED.format(folder=quote(f"{code}-{folder}"), code=code)
+        url = FEED.format(office=REGION.office, folder=quote(f"{code}-{folder}"), code=code)
         print(f"  {name}: descargando…", flush=True)
         r = requests.get(url, timeout=600)
         r.raise_for_status()

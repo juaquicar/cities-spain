@@ -1,7 +1,7 @@
 """Catastro GML → one row per building (data/buildings.parquet) and its parts by floors (data/parts.parquet).
 
-Everything is reprojected to ETRS89 / UTM 30N (EPSG:25830): the Catastro serves Sevilla province in zone 29 or 30
-depending on the office, and the city sits on the boundary between them.
+Everything is reprojected to the region's UTM zone (Sevilla and Madrid 30N, Barcelona 31N): the Catastro serves Sevilla
+province in zone 29 or 30 depending on the office, and the city sits on the boundary between them.
 """
 import geopandas as gpd
 import pandas as pd
@@ -9,8 +9,9 @@ import pyogrio
 
 from .s00_fetch_catastro import RAW, chosen
 from .municipios import BY_CODE, ORDER
+from .region import DATA, REGION
 
-CRS = 25830
+CRS = REGION.crs
 B_COLS = ["localId", "beginning", "currentUse", "numberOfDwellings", "numberOfBuildingUnits",
           "conditionOfConstruction", "value"]
 P_COLS = ["localId", "numberOfFloorsAboveGround", "numberOfFloorsBelowGround"]
@@ -40,7 +41,7 @@ def main():
     # ruins stay out: the Catastro keeps them, the city does not show them
     b = b[b.conditionOfConstruction != "ruin"]
     p = p[p.ref.isin(b.ref) & ~p.geometry.is_empty & p.geometry.notna()]
-    b.to_parquet("data/buildings_raw.parquet"); p.to_parquet("data/parts.parquet")
+    b.to_parquet(DATA / "buildings_raw.parquet"); p.to_parquet(DATA / "parts.parquet")
     print(len(b), "edificios;", len(p), "partes")
 
 

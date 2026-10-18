@@ -9,7 +9,6 @@ For every Catastro building part, the 85th percentile of the building cells whos
 height, when there are at least MIN_CELLS of them and the building is older than the flight (LIDAR_YEAR): a newer
 building was not there yet. Output: data/lidar.parquet (part localId → height), read by s03_tiles.
 """
-from pathlib import Path
 
 import geopandas as gpd
 import numpy as np
@@ -18,17 +17,19 @@ import rasterio
 from rasterio.features import rasterize
 from rasterio.windows import Window, from_bounds
 
-RAW = Path("data/raw/lidar")
+from .region import DATA, REGION
+
+RAW = DATA / "raw/lidar"
 PCT = 85
 MIN_CELLS = 3
-LIDAR_YEAR = 2015   # second PNOA LiDAR coverage over Sevilla
+LIDAR_YEAR = REGION.lidar_year   # second PNOA LiDAR coverage
 MAX_H = 200.0
 
 
 def heights_from(path, parts):
     out = {}
     with rasterio.open(path) as src:
-        crs = src.crs or 25830
+        crs = src.crs or REGION.crs
         p = parts.to_crs(crs)
         l, b, r, t = src.bounds
         p = p.cx[l:r, b:t]
@@ -58,17 +59,17 @@ def main():
     files = sorted(f for f in RAW.glob("**/*") if f.suffix.lower() in (".tif", ".tiff", ".asc"))
     if not files:
         print("  sin ficheros LiDAR en data/raw/lidar: alturas por plantas")
-        pd.DataFrame(columns=["localId", "h_lidar"]).to_parquet("data/lidar.parquet")
+        pd.DataFrame(columns=["localId", "h_lidar"]).to_parquet(DATA / "lidar.parquet")
         return
-    parts = gpd.read_parquet("data/parts.parquet")[["localId", "ref", "geometry"]]
-    years = gpd.read_parquet("data/buildings.parquet", columns=["ref", "year"]).set_index("ref").year
+    parts = gpd.read_parquet(DATA / "parts.parquet")[["localId", "ref", "geometry"]]
+    years = gpd.read_parquet(DATA / "buildings.parquet", columns=["ref", "year"]).set_index("ref").year
     parts = parts[parts.ref.map(years).fillna(9999) <= LIDAR_YEAR].reset_index(drop=True)
     h = {}
     for f in files:
         got = heights_from(f, parts)
         h.update(got)
         print(f"  {f.name}: {len(got)} partes", flush=True)
-    pd.DataFrame({"localId": list(h), "h_lidar": list(h.values())}).to_parquet("data/lidar.parquet")
+    pd.DataFrame({"localId": list(h), "h_lidar": list(h.values())}).to_parquet(DATA / "lidar.parquet")
     print(f"{len(h)} de {len(parts)} partes con altura LiDAR")
 
 

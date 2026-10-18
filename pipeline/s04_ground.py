@@ -7,7 +7,6 @@ import json
 import math
 import time
 import zlib
-from pathlib import Path
 
 import numpy as np
 import requests
@@ -17,16 +16,17 @@ from shapely.geometry import LineString, Polygon
 from shapely.ops import polygonize, unary_union
 
 from .municipios import ORDER
+from .region import DATA, REGION
 from .s00_fetch_catastro import chosen
 from .s03_tiles import OUT, to_local
 
 OVERPASS = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter",
             "https://overpass.private.coffee/api/interpreter"]
-# the Catastro numbers Sevilla and the four newest municipalities its own way; INE and OSM use these
-INE = {"41900": "41091", "41103": "41901", "41104": "41902", "41105": "41903", "41106": "41904"}
-CACHE = Path("data/raw/osm")
-PROVINCE = "36.8,-6.6,38.25,-4.6"  # Sevilla province, south-west-north-east; cheaper for Overpass than an area
-TO_UTM = Transformer.from_crs(4326, 25830, always_xy=True).transform
+# the Catastro numbers the capitals and the newest municipalities its own way; INE and OSM use these
+INE = REGION.ine
+CACHE = DATA / "raw/osm"
+PROVINCE = REGION.bbox  # south-west-north-east; cheaper for Overpass than an area
+TO_UTM = Transformer.from_crs(4326, REGION.crs, always_xy=True).transform
 
 
 def overpass(query: str, name: str):
@@ -105,7 +105,7 @@ def main():
         munis.append(dict(id=ORDER.index(code), rings=polys(g, 4)))
     area = unary_union(shapes)
     minx, miny, maxx, maxy = area.buffer(1500).bounds
-    to_ll = Transformer.from_crs(25830, 4326, always_xy=True).transform
+    to_ll = Transformer.from_crs(REGION.crs, 4326, always_xy=True).transform
     w, s = to_ll(minx, miny)
     e, n = to_ll(maxx, maxy)
     # water in cells of at most ~0.4°, for the same reason; a cell Overpass will not answer is split in four
@@ -131,6 +131,7 @@ def main():
     water = [g for g in map(assemble, els) if g is not None and not g.is_empty]
     water = unary_union([shapely.make_valid(g) for g in water]).intersection(area.buffer(1500)) if water else Polygon()
     ground = dict(munis=munis, water=polys(water, 2))
+    OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "ground.json").write_text(json.dumps(ground, separators=(",", ":")))
     print(f"{len(munis)} términos municipales, {len(ground['water'])} polígonos de agua, "
           f"{(OUT / 'ground.json').stat().st_size / 1e6:.1f} MB")

@@ -1,6 +1,6 @@
 """Pack buildings into 600 m binary tiles, a per-building attribute table and the city config JSON.
 
-Local frame: metres from the Giralda, x east, z south (three.js, y up).
+Local frame: metres from the region's landmark (the Giralda in Sevilla), x east, z south (three.js, y up).
 Tile layout (little-endian, every section 4-byte aligned):
   header  u32 magic, nB, nP, nR, nV; f32 originX, originZ (the tile's centre)
   B       u32 gid[nB]; i16 year[nB]; u8 flag[nB]; u8 period[nB]; u8 floors[nB]; u8 muni[nB]; u8 use[nB]; u8 mon[nB];
@@ -24,12 +24,13 @@ from pyproj import Transformer
 
 from .municipios import BY_CODE, ORDER
 from .periods import PERIODS, period_of
+from .region import DATA, REGION
 from .s00_fetch_catastro import chosen
 
-GIRALDA = Transformer.from_crs(4326, 25830, always_xy=True).transform(-5.99260, 37.38620)
+ORIGIN = Transformer.from_crs(4326, REGION.crs, always_xy=True).transform(*REGION.landmark)
 TILE = float(os.environ.get("SITE_TILE", 600))  # metres; a whole province takes bigger tiles, so fewer meshes to draw
 SIMPLIFY = 0.2
-OUT = Path(os.environ.get("SITE_OUT", "web/data"))  # pipeline.sites builds each site into its own folder
+OUT = Path(os.environ.get("SITE_OUT", "web/data" if REGION.key == "sevilla" else DATA / "web"))  # pipeline.sites builds each site into its own folder
 MAGIC = 0x33565153  # 'SQV3'
 DROPPED = [0]       # rings out of i16 range, reported at the end
 PACK_MAX = 8e6      # bytes per pack and per part of the attribute table
@@ -44,7 +45,7 @@ def pad4(b: bytes) -> bytes:
 
 
 def to_local(coords: np.ndarray) -> np.ndarray:
-    return np.c_[coords[:, 0] - GIRALDA[0], -(coords[:, 1] - GIRALDA[1])]
+    return np.c_[coords[:, 0] - ORIGIN[0], -(coords[:, 1] - ORIGIN[1])]
 
 
 def rings_of(geom):
@@ -94,14 +95,14 @@ def pack_tile(origin, rows):
 
 
 def main():
-    b = gpd.read_parquet("data/buildings.parquet")
+    b = gpd.read_parquet(DATA / "buildings.parquet")
     b = b[b.muni.isin([ORDER.index(c) for c in chosen()])].sort_values(["muni", "ref"]).reset_index(drop=True)
     b["year_cat"] = b.year
-    base = OUT.parent / "base.parquet" if os.environ.get("SITE_OUT") else Path("data/base.parquet")
+    base = OUT.parent / "base.parquet" if os.environ.get("SITE_OUT") else DATA / "base.parquet"
     b["base"] = b.ref.map(pd.read_parquet(base).set_index("ref").base).fillna(0) if base.exists() else 0.0
-    # Heritage buildings (s05_monumentos): the IAPH's construction date wins over the Catastro's when it is earlier.
-    # date_flag 3 dated by the IAPH or Wikidata, 4 by the start of an IAPH period only.
-    mon = pd.read_parquet("data/monumentos.parquet") if Path("data/monumentos.parquet").exists() else pd.DataFrame(columns=["ref"])
+    # Heritage buildings (s05_monumentos): the IAPH's (or Wikidata's) construction date wins over the Catastro's when
+    # it is earlier. date_flag 3 dated by the IAPH or Wikidata, 4 by the start of an IAPH period only.
+    mon = pd.read_parquet(DATA / "monumentos.parquet") if (DATA / "monumentos.parquet").exists() else pd.DataFrame(columns=["ref"])
     b["mon"] = b.ref.isin(mon.ref).astype(np.uint8)
     if len(mon):
         y = b.ref.map(mon.set_index("ref").y0)
@@ -110,12 +111,12 @@ def main():
         b.loc[earlier, "year"] = y[earlier].astype(int)
         b.loc[earlier, "date_flag"] = np.where(ap[earlier], 4, 3)
         b["period"] = b.year.map(period_of).astype(np.uint8)
-    p = gpd.read_parquet("data/parts.parquet")
+    p = gpd.read_parquet(DATA / "parts.parquet")
     gid = {k: i for i, k in enumerate(b.ref)}
 
     p = p[p.ref.isin(gid)].copy()
     # LiDAR heights (s07_lidar) replace the floors estimate where there are any
-    lidar = Path("data/lidar.parquet")
+    lidar = DATA / "lidar.parquet"
     p["lidar"] = False
     if lidar.exists():
         hl = p.localId.map(pd.read_parquet(lidar).set_index("localId").h_lidar)
@@ -151,7 +152,7 @@ def main():
         index.append(dict(file=name, n=len(rows), dist=round(float(np.hypot(cx, cz)))))
     index.sort(key=lambda t: t["dist"])
 
-    # A few packs, nearest the Giralda first, so the city loads centre-out in few requests; each one well under the
+    # A few packs, nearest the landmark first, so the city loads centre-out in few requests; each one well under the
     # host's per-file limit (Cloudflare: 25 MiB).
     total = sum(len(v) for v in blobs.values())
     target = min(PACK_MAX, max(total / 16, 1e6))
@@ -188,12 +189,13 @@ def main():
                 continue
             cards[int(g[r.ref])] = {k: v for k, v in dict(
                 n=r.name, y0=None if pd.isna(r.y0) else int(r.y0), y1=None if pd.isna(r.y1) else int(r.y1),
-                st=r.style, pe=r.period, ty=r.types, pr=r.prot, img=r.img, wp=r.wp, iaph=int(r.iaph)).items() if v not in ("", None)}
+                st=r.style, pe=r.period, ty=r.types, pr=r.prot, img=r.img, wp=r.wp,
+                iaph=int(r.iaph) if getattr(r, "iaph", 0) else None, wd=getattr(r, "wd", "")).items() if v not in ("", None)}
         (OUT / "monumentos.json").write_text(json.dumps(cards, ensure_ascii=False, separators=(",", ":")))
     attrs["dwell"] = b.dwellings.clip(0, 65535)
     attrs["h"] = np.round(b.height * 10).clip(0, 65535)
     attrs["area"] = b.area
-    attrs["lon"], attrs["lat"] = Transformer.from_crs(25830, 4326, always_xy=True).transform(
+    attrs["lon"], attrs["lat"] = Transformer.from_crs(REGION.crs, 4326, always_xy=True).transform(
         b.geometry.centroid.x.to_numpy(), b.geometry.centroid.y.to_numpy())
     for old in OUT.glob("attrs*.bin"):
         old.unlink()
@@ -216,7 +218,8 @@ def main():
     x0, x1, z0, z1 = b.x.quantile(0.01), b.x.quantile(0.99), b.z.quantile(0.01), b.z.quantile(0.99)
     home = dict(cx=round(float((x0 + x1) / 2), 1), cz=round(float((z0 + z1) / 2), 1), span=float(max(x1 - x0, z1 - z0)))
     config = dict(
-        city="sevilla", label=os.environ.get("SITE_LABEL") or (munis[0]["name"] if len(munis) == 1 else "Provincia de Sevilla"), tileSize=TILE, origin=GIRALDA,
+        city=REGION.key, label=os.environ.get("SITE_LABEL") or (munis[0]["name"] if len(munis) == 1 else REGION.label), tileSize=TILE, origin=ORIGIN,
+        heritage=REGION.heritage,
         home=dict(x=home["cx"], z=home["cz"], azimuth=200, elevation=40, span=min(home["span"] * 1.1, 160000)),
         periods=[dict(key=k, label=l, from_=a, to=bb, color=col) for k, l, a, bb, col in PERIODS],
         uses=[dict(label=l, color=c) for l, c in USES],

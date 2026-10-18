@@ -1,11 +1,12 @@
-"""Municipios del proyecto: los 106 de la provincia de Sevilla.
+"""Municipios del proyecto: los 106 de la provincia de Sevilla, o los de la región elegida (pipeline/region.py).
 
 Código = código INE de 5 cifras que usa el Catastro en su feed INSPIRE (provincia 41).
 `carpeta` es el nombre exacto de la carpeta del feed (https://www.catastro.hacienda.gob.es/INSPIRE/Buildings/41/).
 El orden de la lista es el de la interfaz: primero Sevilla, después el resto por orden alfabético.
 """
+from .region import REGION
 
-MUNICIPIOS = [
+SEVILLA = [
     ("41900", "Sevilla", "SEVILLA"),
     ("41001", "Aguadulce", "AGUADULCE"),
     ("41002", "Alanís", "ALANIS"),
@@ -122,6 +123,7 @@ ALJARAFE = [
     "41087", "41089", "41093", "41094", "41096", "41097", "41098",
 ]
 
+MUNICIPIOS = list(REGION.municipios) or SEVILLA
 BY_CODE = {c: (n, f) for c, n, f in MUNICIPIOS}
 ORDER = [c for c, _, _ in MUNICIPIOS]
 

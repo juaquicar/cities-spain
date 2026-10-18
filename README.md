@@ -1,9 +1,11 @@
-# Sevilla y Aljarafe, edificio a edificio
+# Ciudades de España, edificio a edificio
 
-Cada edificio en pie de Sevilla, el Aljarafe y el resto de la provincia en 3D, coloreado por época de construcción, uso o número de plantas,
-con filtro por municipio. Pipeline en Python que alimenta un visor three.js sin build step.
+Cada edificio en pie de Sevilla (con el Aljarafe y el resto de la provincia), Madrid y Barcelona en 3D, coloreado por
+época de construcción, uso o número de plantas, con filtro por municipio. Pipeline en Python que alimenta un visor
+three.js sin build step.
 
-**En vivo:** [sevilla-provincia.quijada.uk](https://sevilla-provincia.quijada.uk) ·
+**En vivo:** [madrid.quijada.uk](https://madrid.quijada.uk) · [barcelona.quijada.uk](https://barcelona.quijada.uk) ·
+[sevilla-provincia.quijada.uk](https://sevilla-provincia.quijada.uk) ·
 [sevilla-aljarafe.quijada.uk](https://sevilla-aljarafe.quijada.uk) ·
 [sevilla.quijada.uk](https://sevilla.quijada.uk) · [aljarafe.quijada.uk](https://aljarafe.quijada.uk) ·
 [tomares.quijada.uk](https://tomares.quijada.uk)
@@ -26,7 +28,7 @@ Catastro INSPIRE + OSM ──► pipeline/ (Python) ──► web/data/ (teselas
 | `s01_load` | Building + BuildingPart → parquet, reproyectado a ETRS89 / UTM 30N |
 | `s02_attributes` | Años (marca los redondeados, estima los que faltan), plantas → altura, uso, época |
 | `s03_tiles` | Teselas de 600 m en packs, `attrs.bin` por edificio, `city.json` |
-| `s05_monumentos` | Patrimonio inmueble del IAPH (datos abiertos Junta) + Wikidata: nombre, datación, estilo, BIC, foto |
+| `s05_monumentos` | Patrimonio: IAPH (datos abiertos Junta) + Wikidata en Andalucía; solo Wikidata en Madrid y Barcelona |
 | `s04_ground` | Términos municipales y agua de OpenStreetMap (Overpass) |
 | `s06_terreno` | MDT 5 m del IGN (WCS): cota de cada edificio y malla de relieve |
 | `s07_lidar` | Alturas LiDAR (MDSnE2,5 del CNIG) si hay ficheros en `data/raw/lidar/`; si no, plantas × 3 m |
@@ -38,8 +40,10 @@ uv sync
 uv run python -m pipeline.build tomares            # primer municipio
 uv run python -m pipeline.build sevilla mairena    # añade más (se acumulan)
 uv run python -m pipeline.build todos              # los 106 municipios de la provincia
+REGION=madrid uv run python -m pipeline.build todos      # Madrid, en data/madrid/
+REGION=barcelona uv run python -m pipeline.build todos   # Barcelona, en data/barcelona/
 python3 -m http.server 8642 --directory web        # http://localhost:8642
-uv run python -m pipeline.sites --deploy           # publica los cinco sitios (tras `npx wrangler login`; con varias cuentas, CLOUDFLARE_ACCOUNT_ID)
+uv run python -m pipeline.sites --deploy           # publica los siete sitios (tras `npx wrangler login`; con varias cuentas, CLOUDFLARE_ACCOUNT_ID)
 ```
 
 ### Sitios publicados
@@ -54,6 +58,16 @@ uv run python -m pipeline.sites --deploy           # publica los cinco sitios (t
 | https://aljarafe.quijada.uk | Los 31 del Aljarafe, sin la capital | `aljarafe` |
 | https://sevilla-aljarafe.quijada.uk | Sevilla + Aljarafe (32) | `sevilla-aljarafe` |
 | https://sevilla-provincia.quijada.uk | Toda la provincia (106) | `sevilla-provincia` |
+| https://madrid.quijada.uk | Madrid | `madrid-edificios` |
+| https://barcelona.quijada.uk | Barcelona | `barcelona-edificios` |
+
+### Regiones
+
+`pipeline/region.py` define cada región (`REGION`, por defecto `sevilla`): oficina del Catastro, huso UTM del marco
+local (Barcelona va en 31N; el MDT del IGN se pide en 30N y se reproyecta), punto de origen (Giralda, Puerta del Sol,
+Plaça de Catalunya), municipios y fuente de patrimonio. Los periodos de la leyenda de cada región están en
+`pipeline/periods.py`. Fuera de Andalucía el patrimonio viene solo de Wikidata: elementos con punto y declaración
+patrimonial, estilo o fecha de inicio; los que solo tienen fecha cuentan únicamente si el punto cae dentro de un edificio.
 
 ### Alturas LiDAR
 

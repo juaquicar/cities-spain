@@ -1,5 +1,5 @@
 {
-  "name": "sevilla-edificios",
+  "name": "cities-spain",
   "private": true,
   "scripts": {
     "deploy": "uv run python -m pipeline.sites --deploy"

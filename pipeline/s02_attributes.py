@@ -11,6 +11,7 @@ import numpy as np
 from scipy.spatial import cKDTree
 
 from .periods import period_of
+from .region import DATA
 
 FLOOR = 3.0
 PARAPET = 0.5
@@ -26,8 +27,8 @@ def part_height(floors):
 
 
 def main():
-    b = gpd.read_parquet("data/buildings_raw.parquet")
-    p = gpd.read_parquet("data/parts.parquet")
+    b = gpd.read_parquet(DATA / "buildings_raw.parquet")
+    p = gpd.read_parquet(DATA / "parts.parquet")
 
     year = b.beginning.str.slice(0, 4)
     year = year.where(year.str.fullmatch(r"\d{4}")).astype(float)
@@ -64,8 +65,8 @@ def main():
     # tertiary uses split: 4_1 office, 4_2 retail, 4_3 public services → 4, 5, 6
     b.loc[b.currentUse == "4_2_retail", "use"] = 5
     b.loc[b.currentUse == "4_3_publicServices", "use"] = 6
-    b.to_parquet("data/buildings.parquet")
-    p.to_parquet("data/parts.parquet")
+    b.to_parquet(DATA / "buildings.parquet")
+    p.to_parquet(DATA / "parts.parquet")
     print(f"{len(b)} edificios; años redondeados: {(b.date_flag == 1).sum()}, estimados: {(b.date_flag == 2).sum()}; "
           f"rango {b.year.min()}–{b.year.max()}; plantas máx {b.floors.max()}")
 

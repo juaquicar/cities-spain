@@ -1,4 +1,4 @@
-// Sevilla y Aljarafe, edificio a edificio: a three.js city from the Catastro, coloured by age, use or floors,
+// Sevilla (Madrid, Barcelona…), edificio a edificio: a three.js city from the Catastro, coloured by age, use or floors,
 // filtered by municipality. Data comes from pipeline/ (s03_tiles: packs + attrs.bin + city.json; s04_ground).
 import * as THREE from './vendor/three.module.js';
 import { MapControls } from './vendor/MapControls.js';
@@ -32,6 +32,8 @@ const [config, attrBuf, heritage, ground] = await Promise.all([
 const periods = config.periods, uses = config.uses, munis = config.municipios;
 const muniById = Object.fromEntries(munis.map(m => [m.id, m]));
 document.title = `${config.label}, edificio a edificio`;
+// where the heritage cards come from: the IAPH in Andalucía, Wikidata elsewhere (pipeline/region.py)
+const IAPH = (config.heritage || 'iaph') === 'iaph', HSRC = IAPH ? 'IAPH' : 'Wikidata';
 // haze starts further out when the whole area is wider than a city (a province)
 const FOG = Math.max(1, config.home.span / 40000);
 const fmt = n => n.toLocaleString('es-ES', { useGrouping: 'always' });
@@ -425,10 +427,10 @@ function renderPanel(c) {
         <i class="swatch" style="background:${p.color}"></i>
         <span>${p.label}<br><span class="years">${p.from < 1000 ? `antes de ${p.to + 1}` : `${p.from}–${p.to > 2050 ? 'hoy' : p.to}`}</span></span>
         <span class="n">${fmt(n[k])}</span></button></li>`).join('')}</ul>
-      ${herit ? `<p class="note">${fmt(n.reduce((a, b) => a + b, 0))} edificios con ficha del Instituto Andaluz del Patrimonio
-        Histórico, ${fmt(c.bic)} de ellos Bien de Interés Cultural. Fechados por su construcción, no por la última reforma.</p>`
+      ${herit ? `<p class="note">${fmt(n.reduce((a, b) => a + b, 0))} edificios con ficha ${IAPH ? `del Instituto Andaluz del Patrimonio
+        Histórico` : 'en Wikidata'}, ${fmt(c.bic)} de ellos Bien de Interés Cultural. Fechados por su construcción, no por la última reforma.</p>`
       : `<p class="note">Más pálidos: año aproximado, redondeado en el Catastro (${fmt(config.stats.rounded)}) o estimado a partir de los vecinos (${fmt(config.stats.estimated)}).
-        Los ${fmt(config.stats.redated)} edificios catalogados llevan la fecha del IAPH.</p>`}`;
+        Los ${fmt(config.stats.redated)} edificios catalogados llevan la fecha ${IAPH ? 'del IAPH' : 'de Wikidata'}.</p>`}`;
     panel.querySelectorAll('button').forEach(b => b.onclick = () => {
       state.periodMask[+b.dataset.k] ^= 1; update();
     });
@@ -605,13 +607,14 @@ function cardHtml(i, pinned) {
   return `${pinned ? '<button class="close" aria-label="Cerrar">×</button>' : ''}
     ${img}${h ? `<p class="name">${esc(h.n)}</p>` : ''}
     <h3>${year}</h3>
-    <p class="era"><i style="background:${p.color}"></i>${p.label}${['', ' · año redondeado', ' · año estimado', ' · fecha IAPH', ' · periodo IAPH'][b.flag] || ''}</p>
+    <p class="era"><i style="background:${p.color}"></i>${p.label}${['', ' · año redondeado', ' · año estimado', ` · fecha ${HSRC}`, ` · periodo ${HSRC}`][b.flag] || ''}</p>
     <dl>${rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
     ${pinned ? `<p class="links">
       <a href="https://www1.sedecatastro.gob.es/Cartografia/mapa.aspx?refcat=${encodeURIComponent(b.ref)}" target="_blank" rel="noopener">Catastro</a>
       <a href="https://www.google.com/maps/search/?api=1&query=${ll}" target="_blank" rel="noopener">Mapa</a>
       <a href="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${ll}" target="_blank" rel="noopener">Street View</a>
-      ${h ? `<a href="https://guiadigital.iaph.es/bien/inmueble/${h.iaph}" target="_blank" rel="noopener">IAPH</a>` : ''}
+      ${h?.iaph ? `<a href="https://guiadigital.iaph.es/bien/inmueble/${h.iaph}" target="_blank" rel="noopener">IAPH</a>` : ''}
+      ${h?.wd ? `<a href="https://www.wikidata.org/wiki/${encodeURIComponent(h.wd)}" target="_blank" rel="noopener">Wikidata</a>` : ''}
       ${h?.wp ? `<a href="${esc(h.wp)}" target="_blank" rel="noopener">Wikipedia</a>` : ''}
     </p>${h?.img ? '<p class="credit">Foto: Wikimedia Commons</p>' : ''}` : ''}`;
 }
