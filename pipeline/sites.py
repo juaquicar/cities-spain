@@ -263,7 +263,8 @@ def portal(deploy=False):
                         simple.append([[v for xy in part.exterior.coords for v in xy]])
             munis.append(dict(
                 code=m["code"], name=m["name"], n=m["n"], id=m["id"],
-                **(dict(pt=spain_map.project(*ll), ll=[round(ll[0], 5), round(ll[1], 5)])
+                # where it is, for «Estoy en la calle»; the map of Spain draws only the city
+                **(dict(ll=[round(ll[0], 5), round(ll[1], 5)])
                    if reg and len(c["municipios"]) > 1 and (ll := centre(m["id"])) else {}),
                 packs=sorted({t["pack"] for t in c["tiles"] if t.get("muni", m["id"]) == m["id"]}),
                 parts=[p["file"] for p in parts if not p.get("munis") or m["id"] in p["munis"]],

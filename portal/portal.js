@@ -95,23 +95,18 @@ $('cities').onclick = e => {
 };
 
 // ---------- Map of Spain: a red dot per city, its area by the number of buildings ----------
-// A city of many municipalities (the province of Sevilla) is its capital's dot plus a small one per municipality.
+// A city of many municipalities (the province of Sevilla) is one dot, sized by its capital; its towns are picked inside.
 // Wheel, pinch or the buttons zoom; dragging pans once zoomed; dots and names keep their size on screen.
 const spain = await fetch('spain.json').then(r => r.json()).catch(() => null);
 const spainSvg = $('spain'), spainTip = $('spain-tip');
 const TIP = spainTip.textContent;
 const openCity = c => { if (c.municipios.length > 1) location.hash = c.key; else location.href = `${c.key}/`; };
 if (spain && cities.some(c => c.pt)) {
-  // the dots: one per single-municipality city; the capital and the other municipalities of the larger areas
-  const dots = [];
-  for (const c of cities.filter(c => c.pt)) {
-    if (c.municipios.length === 1) { dots.push({ c, n: c.buildings, pt: c.pt, main: true }); continue; }
-    const capital = c.municipios.reduce((a, m) => (m.n > a.n ? m : a));
-    dots.push({ c, n: capital.n, pt: c.pt, main: true, m: capital });
-    for (const m of c.municipios) if (m !== capital && m.pt) dots.push({ c, n: m.n, pt: m.pt, m });
-  }
+  // the dots: one per city; an area of many municipalities is sized by its capital, not by the whole province
+  const dots = cities.filter(c => c.pt).map(c => ({ c, pt: c.pt,
+    n: c.municipios.length === 1 ? c.buildings : Math.max(...c.municipios.map(m => m.n)) }));
   const most = Math.max(...dots.map(d => d.n));
-  const radius = d => (d.main ? 5 : 1.5) + 22 * Math.sqrt(d.n / most);
+  const radius = d => 5 + 22 * Math.sqrt(d.n / most);
   dots.sort((a, b) => b.n - a.n);  // the big ones drawn first, so a small one on top of them can still be touched
   const [cx, cy, cw, ch] = spain.canarias;
   spainSvg.setAttribute('viewBox', `0 0 ${spain.w} ${spain.h}`);
@@ -119,24 +114,19 @@ if (spain && cities.some(c => c.pt)) {
     ${spain.ccaa.map(r => `<path class="ccaa-shape" d="${r.d}"/>`).join('')}
     <rect class="frame" x="${cx}" y="${cy}" width="${cw}" height="${ch}" rx="10"/>
     ${dots.map((d, k) => {
-      const r = radius(d), label = d.main ? d.c.name : d.m.name;
-      return `<g class="dot${d.main ? '' : ' muni'}" data-k="${k}"
-        data-tags="${(d.c.tags || []).join(' ')}" transform="translate(${d.pt[0]} ${d.pt[1]})" ${d.main ? 'tabindex="0" role="link"' : ''}
-        aria-label="${esc(label)}, ${fmt(d.n)} edificios"><circle r="${r.toFixed(2)}"/>
-        <text>${esc(label)}</text></g>`;
+      return `<g class="dot" data-k="${k}" data-tags="${(d.c.tags || []).join(' ')}"
+        transform="translate(${d.pt[0]} ${d.pt[1]})" tabindex="0" role="link"
+        aria-label="${esc(d.c.name)}, ${fmt(d.c.buildings)} edificios"><circle r="${radius(d).toFixed(2)}"/>
+        <text>${esc(d.c.name)}</text></g>`;
     }).join('')}`;
   $('spain-fig').hidden = false;
   const dotOf = e => { const g = e.target.closest('.dot'); return g && dots[+g.dataset.k]; };
-  const tipOf = d => d.main
-    ? `<b>${esc(d.c.name)}</b> · ${fmt(d.c.buildings)} edificios · ${esc(d.c.sub)}`
-    : `<b>${esc(d.m.name)}</b> · ${fmt(d.n)} edificios · ${esc(d.c.name)}`;
+  const tipOf = d => `<b>${esc(d.c.name)}</b> · ${fmt(d.c.buildings)} edificios · ${esc(d.c.sub)}`;
   let dragged = false;
   spainSvg.onclick = e => {
     if (dragged) return;
     const d = dotOf(e);
-    if (!d) return;
-    if (d.main) openCity(d.c);
-    else { preselect = new Set([d.m.code]); location.hash = d.c.key; }
+    if (d) openCity(d.c);
   };
   spainSvg.onkeydown = e => { if (e.key === 'Enter') spainSvg.onclick(e); };
   spainSvg.onmouseover = e => { const d = dotOf(e); spainTip.innerHTML = d ? tipOf(d) : TIP; };
@@ -148,7 +138,7 @@ if (spain && cities.some(c => c.pt)) {
   const groups = [...spainSvg.querySelectorAll('.dot')];
 
   // ----- names: biggest first, each beside its dot on the first free side, or not at all -----
-  // Municipality names join from k >= 3. Boxes are in drawing units; a name may not cover another name or a city's dot.
+  // Boxes are in drawing units; a name may not cover another name or a city's dot.
   const texts = groups.map(g => g.querySelector('text'));
   let widths = [];
   const measure = () => { widths = texts.map(t => t.getComputedTextLength() + 4); };
@@ -161,17 +151,16 @@ if (spain && cities.some(c => c.pt)) {
       && !taken.some(t => b[0] < t[2] && b[2] > t[0] && b[1] < t[3] && b[3] > t[1]);
     groups.forEach((g, i) => {
       const d = dots[i];
-      if (d.main && shown(d, g)) {
+      if (shown(d, g)) {
         const r = radius(d) * s;
         taken.push([d.pt[0] - r, d.pt[1] - r, d.pt[0] + r, d.pt[1] + r]);
       }
     });
-    const order = groups.map((g, i) => i).sort((a, b) => (dots[b].main - dots[a].main) || (dots[b].n - dots[a].n));
-    for (const i of order) {
+    for (let i = 0; i < groups.length; i++) {  // dots are sorted biggest first
       const d = dots[i], g = groups[i], t = texts[i];
       let ok = false;
-      if (shown(d, g) && (d.main || k >= 3)) {
-        const fs = d.main ? 25 : 16, r = radius(d), tw = widths[i], gap = 5;
+      if (shown(d, g)) {
+        const fs = 25, r = radius(d), tw = widths[i], gap = 5;
         for (const [anchor, sx, sy] of SIDES) {
           // the box and the baseline, in the dot's own units (scaled by s on screen)
           const bx = sx > 0 ? r + gap : sx < 0 ? -(r + gap) - tw : -tw / 2;
