@@ -1201,7 +1201,7 @@ const AR_HASH = new URLSearchParams(location.hash.slice(1)).get('ar');
 const CAN_AR = !!navigator.mediaDevices?.getUserMedia && 'DeviceOrientationEvent' in window && matchMedia('(pointer: coarse)').matches;
 arBtn.hidden = !CAN_AR && !AR_HASH;
 const d2r = THREE.MathUtils.degToRad, r2d = THREE.MathUtils.radToDeg;
-const EYE = 1.6, LONG_FOV = 67, NEAR = 20; // NEAR: dots and 3D only for the buildings this close (metres) // metres; degrees across the long side of a phone's main camera
+const EYE = 1.6, LONG_FOV = 67, NEAR = 20; // metres; degrees across the long side of a phone's main camera; metres: dots and 3D only for the buildings this close (to their edge)
 // eye level: the buildings sit on the lowest ground under them, so stand on the median of the nearby ones' bases
 function eyeAt(x, z) {
   const bases = [];

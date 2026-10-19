@@ -6,9 +6,19 @@ Granada, Córdoba, Toledo, Santiago, San Sebastián, Palma, Las Palmas…), colo
 época de construcción, uso o número de plantas, con filtro por municipio. Pipeline en Python que alimenta un visor
 three.js sin build step.
 
+Tres formas de verlo:
+
+- **En el mapa 3D** (navegador o móvil): la ciudad entera por épocas, con la línea del tiempo, las fichas de cada
+  edificio y el patrimonio.
+- **De turismo**: los imprescindibles de cada ciudad y rutas a pie parada a parada, con el resumen de Wikipedia.
+- **En la calle, con la cámara** (patrimonio aumentado): sobre la imagen de la cámara, los edificios que tienes a
+  20–30 m, con su época, su año y su ficha; también guía las rutas. Funciona en el navegador del móvil y en la
+  **app Android** (`android/`, descargable desde el portal), que pide de entrada los permisos de cámara y ubicación.
+
 **Portal:** [spain-cities.quijada.uk](https://spain-cities.quijada.uk): todas las ciudades; antes de cargar nada se
 elige ciudad (en el buscador, en las tarjetas o en el mapa de España, con un punto por ciudad según su número de
-edificios) y, en las grandes, qué municipios, con el peso de la descarga a la vista. El mapa base sale de Natural Earth
+edificios; los pueblos no van en ese mapa, se eligen al entrar en la ciudad o la provincia) y, en las grandes, qué
+municipios, con el peso de la descarga a la vista. El mapa base sale de Natural Earth
 (`pipeline/spain_map.py` escribe `portal/spain.json`).
 
 **Sitios sueltos:** [sevilla.quijada.uk](https://sevilla.quijada.uk) · [aljarafe.quijada.uk](https://aljarafe.quijada.uk).
@@ -81,8 +91,9 @@ monumento con artículo, la ficha añade dos o tres frases del resumen de Wikipe
 En el móvil, «Ver con la cámara» pone la cámara de fondo y encima la ciudad vista desde donde estás: el GPS da la
 posición (pasada al marco local con un ajuste por mínimos cuadrados sobre los edificios cercanos, que llevan lon/lat y
 x/z), la brújula y el giroscopio la orientación (`deviceorientationabsolute` en Android, `webkitCompassHeading` en iOS) y
-el ojo va a 1,6 m sobre la mediana de las cotas de los edificios de alrededor. Sobre la cámara va un punto por cada edificio a 20 m o menos (del color de su época);
-«3D» dibuja además esos edificios, transparentes. La escena sirve para saber qué edificio hay bajo la retícula («Estás mirando»: nombre, año, época,
+el ojo va a 1,6 m sobre la mediana de las cotas de los edificios de alrededor. Sobre la cámara solo va lo que tienes
+cerca: un punto por cada edificio a 20–30 m (20 m hasta su borde, `NEAR` en `web/app.js`), del color de su época;
+«3D» dibuja además esos mismos edificios, transparentes. Lo que queda más lejos no se pinta. La escena sirve para saber qué edificio hay bajo la retícula («Estás mirando»: nombre, año, época,
 plantas, distancia) y si cada monumento con nombre está a la vista o detrás de algo. En una ruta empieza por la parada
 más cercana, una flecha en el borde señala la siguiente y al llegar (25 m) abre su ficha. Deslizar a los lados corrige la
 brújula; tocar un edificio abre su ficha. `#ar=demo` simula estar junto al primer imprescindible, sin cámara ni sensores.
@@ -108,8 +119,11 @@ con el norte primero; referencia `<parcela foral>-<edificio>`. CC BY-SA © Gipuz
 
 ### App Android
 
-`android/` es una app mínima (WebView, sin dependencias, ~11 kB) que abre el portal a pantalla completa: pasa a Android
-los permisos de cámara y ubicación que pide «Ver con la cámara»; las páginas del portal se quedan en la app y cualquier otro enlace (Wikipedia, Google Maps, LinkedIn) se abre en el navegador; acepta
+`android/` es una app mínima (WebView, sin dependencias, ~13 kB) que abre el portal a pantalla completa. Al abrirla
+por primera vez explica para qué sirve cada permiso y pide cámara y ubicación (GPS); la brújula y el giroscopio no
+llevan permiso, pero comprueba que el móvil tenga brújula (si no, avisa de que se orienta deslizando) y, si la
+ubicación está apagada, ofrece activarla. Si se le dice que no, los vuelve a pedir cuando «Ver con la cámara» los
+necesita. Las páginas del portal se quedan en la app y cualquier otro enlace (Wikipedia, Google Maps, LinkedIn) se abre en el navegador; acepta
 enlaces a spain-cities.quijada.uk. El portal la ofrece en `app/ciudades-de-espana.apk` (botón «App Android», oculto
 dentro de la propia app, que se identifica con `CiudadesApp` en el user agent).
 
