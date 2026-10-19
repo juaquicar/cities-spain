@@ -2,6 +2,7 @@
 // filtered by municipality. Data comes from pipeline/ (s03_tiles: packs + attrs.bin + city.json; s04_ground).
 import * as THREE from './vendor/three.module.js';
 import { MapControls } from './vendor/MapControls.js';
+import { parse as parseTile } from './tile.js';
 
 // The 3D colours of each theme (the page's colours are in styles.css): noche, a navy dusk; día, warm sand.
 const THEMES = {
@@ -171,6 +172,7 @@ const groundUniforms = {
   uDim: { value: new THREE.Color(LAND_DIM) }, uOut: { value: new THREE.Color(SKY) },
   uFogColor: { value: new THREE.Color(SKY) }, uFog: { value: new THREE.Vector2(9000 * FOG, 26000 * FOG) },
 };
+let terrainGeo = null, waterMesh = null;
 if (T) {
   const n = T.nx * T.nz, pos = new Float32Array(n * 3), mun = new Float32Array(n);
   for (let j = 0; j < T.nz; j++) for (let i = 0; i < T.nx; i++) {
@@ -188,6 +190,7 @@ if (T) {
   g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   g.setAttribute('muni', new THREE.BufferAttribute(mun, 1));
   g.setIndex(new THREE.BufferAttribute(idx, 1));
+  terrainGeo = g;
   flat.add(new THREE.Mesh(g, new THREE.ShaderMaterial({
     glslVersion: THREE.GLSL3,
     uniforms: groundUniforms,
@@ -225,9 +228,217 @@ for (const m of ground.munis) for (const p of m.rings) {
 }
 if (ground.water.length) {
   // Water lies over the terrain whatever the grid's averaging does at the banks.
-  const water = new THREE.Mesh(drapedGeo(ground.water, 1), waterMat);
-  water.renderOrder = 1;
-  flat.add(water);
+  waterMesh = new THREE.Mesh(drapedGeo(ground.water, 1), waterMat);
+  waterMesh.renderOrder = 1;
+  flat.add(waterMesh);
+}
+
+// ---------- Base map: OSM or the PNOA orthophoto on the ground, off by default (open data only) ----------
+// Web Mercator tiles, each laid on the terrain's own vertices (the cells under it, the rest discarded in the shader), so
+// it neither floats nor sinks; drawn after the terrain with depth "less or equal". A tile's uv is an affine map of the
+// local x, z, fitted on its four corners (lon/lat → UTM by Krüger's series → local), close enough at any zoom.
+const BASES = {
+  osm: { name: 'OpenStreetMap', max: 19, url: (z, x, y) => `https://tile.openstreetmap.org/${z}/${x}/${y}.png`,
+    credit: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>' },
+  pnoa: { name: 'Ortofoto PNOA', max: 19, credit: 'Ortofoto PNOA © <a href="https://www.ign.es" target="_blank" rel="noopener">IGN</a>',
+    url: (z, x, y) => `https://www.ign.es/wmts/pnoa-ma?request=GetTile&service=WMTS&VERSION=1.0.0&Layer=OI.OrthoimageCoverage`
+      + `&Style=default&Format=image/jpeg&TileMatrixSet=GoogleMapsCompatible&TileMatrix=${z}&TileRow=${y}&TileCol=${x}` },
+};
+const UTM = (() => {
+  const f = 1 / 298.257222101, n = f / (2 - f), e = Math.sqrt(f * (2 - f));
+  const A = 6378137 / (1 + n) * (1 + n * n / 4 + n ** 4 / 64);
+  const al = [n / 2 - 2 / 3 * n * n + 5 / 16 * n ** 3, 13 / 48 * n * n - 3 / 5 * n ** 3, 61 / 240 * n ** 3];
+  return (lon, lat, zone) => {
+    const phi = lat * Math.PI / 180, lam = (lon - (zone * 6 - 183)) * Math.PI / 180;
+    const t = Math.sinh(Math.atanh(Math.sin(phi)) - e * Math.atanh(e * Math.sin(phi)));
+    const xi = Math.atan2(t, Math.cos(lam)), eta = Math.atanh(Math.sin(lam) / Math.sqrt(1 + t * t));
+    let x = eta, y = xi;
+    for (let j = 1; j <= 3; j++) { y += al[j - 1] * Math.sin(2 * j * xi) * Math.cosh(2 * j * eta); x += al[j - 1] * Math.cos(2 * j * xi) * Math.sinh(2 * j * eta); }
+    return [500000 + 0.9996 * A * x, 0.9996 * A * y];
+  };
+})();
+// the frame's zone is not in city.json: the one that puts a building's lon/lat on its x, z
+const base = (() => {
+  let lon0 = Infinity, lon1 = -Infinity, lat0 = Infinity, lat1 = -Infinity, probe = -1;
+  for (let i = 0; i < N; i += 7) if (B.ok[i]) {
+    const o = i * S, lo = dv.getFloat32(o + F.lon, true), la = dv.getFloat32(o + F.lat, true);
+    if (!(la > 27 && la < 44)) continue;
+    lon0 = Math.min(lon0, lo); lon1 = Math.max(lon1, lo); lat0 = Math.min(lat0, la); lat1 = Math.max(lat1, la);
+    if (probe < 0) probe = i;
+  }
+  if (probe < 0) return null;
+  const o = probe * S, lo = dv.getFloat32(o + F.lon, true), la = dv.getFloat32(o + F.lat, true);
+  const E = dv.getFloat32(o + F.x, true) + config.origin[0], Nn = config.origin[1] - dv.getFloat32(o + F.z, true);
+  let zone = 30, err = Infinity;
+  for (const z of [28, 29, 30, 31]) { const [x, y] = UTM(lo, la, z), d = Math.hypot(x - E, y - Nn); if (d < err) { err = d; zone = z; } }
+  if (err > 200) return null;
+  const pad = 0.03;
+  return { zone, lon0: lon0 - pad, lon1: lon1 + pad, lat0: lat0 - pad, lat1: lat1 + pad };
+})();
+const baseGroup = new THREE.Group();
+flat.add(baseGroup);
+const baseShared = { uFogColor: groundUniforms.uFogColor, uFog: groundUniforms.uFog, uBright: { value: 1 } };
+const hMin = T ? T.h.reduce((a, v) => Math.min(a, v), Infinity) / 10 - 1 : -1, hMax = T ? T.h.reduce((a, v) => Math.max(a, v), -Infinity) / 10 + 1 : 1;
+const baseTiles = new Map(), baseLoader = new THREE.TextureLoader().setCrossOrigin('anonymous');
+let baseKey = null, baseLoading = 0, baseQueue = [], baseDirty = true, baseLast = 0, baseCam = '';
+const tileLon = (x, z) => x / 2 ** z * 360 - 180, tileLat = (y, z) => Math.atan(Math.sinh(Math.PI * (1 - 2 * y / 2 ** z))) * 180 / Math.PI;
+const toLocal = (lon, lat) => { const [E, Nn] = UTM(lon, lat, base.zone); return [E - config.origin[0], config.origin[1] - Nn]; };
+function baseTile(z, x, y) {
+  const key = `${z}/${x}/${y}`;
+  let t = baseTiles.get(key);
+  if (t) return t;
+  // corners NW, NE, SW, SE in local x, z, and the affine (x, z, 1) → u, v fitted on them
+  const c = [[x, y], [x + 1, y], [x, y + 1], [x + 1, y + 1]].map(([i, j]) => toLocal(tileLon(i, z), tileLat(j, z)));
+  const uv = [[0, 0], [1, 0], [0, 1], [1, 1]];
+  const m = new THREE.Matrix3(), ru = new THREE.Vector3(), rv = new THREE.Vector3();
+  const M = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+  c.forEach(([px, pz], k) => {
+    const r = [px, pz, 1];
+    for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) M[a * 3 + b] += r[a] * r[b];
+    ru.x += px * uv[k][0]; ru.y += pz * uv[k][0]; ru.z += uv[k][0];
+    rv.x += px * uv[k][1]; rv.y += pz * uv[k][1]; rv.z += uv[k][1];
+  });
+  m.set(...M).invert();
+  const xs = c.map(p => p[0]), zs = c.map(p => p[1]);
+  const box = new THREE.Box3(new THREE.Vector3(Math.min(...xs), hMin, Math.min(...zs)), new THREE.Vector3(Math.max(...xs), hMax, Math.max(...zs)));
+  t = { key, z, x, y, box, size: box.max.x - box.min.x, u: ru.applyMatrix3(m), v: rv.applyMatrix3(m), state: 'idle', used: 0 };
+  baseTiles.set(key, t);
+  return t;
+}
+function baseMesh(t) {
+  if (t.mesh) return t.mesh;
+  let g;
+  if (terrainGeo) {
+    // the terrain's cells under the tile, on the terrain's own vertices
+    const cl = (v, n) => Math.min(n - 2, Math.max(0, v));
+    const i0 = cl(Math.floor((t.box.min.x - T.x0) / T.step), T.nx), i1 = cl(Math.ceil((t.box.max.x - T.x0) / T.step), T.nx);
+    const j0 = cl(Math.floor((t.box.min.z - T.z0) / T.step), T.nz), j1 = cl(Math.ceil((t.box.max.z - T.z0) / T.step), T.nz);
+    const idx = new Uint32Array((i1 - i0 + 1) * (j1 - j0 + 1) * 6);
+    let q = 0;
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+      const a = j * T.nx + i, b = a + 1, c = a + T.nx, d = c + 1;
+      idx.set([a, c, b, b, c, d], q); q += 6;
+    }
+    g = new THREE.BufferGeometry();
+    g.setAttribute('position', terrainGeo.attributes.position);
+    g.setIndex(new THREE.BufferAttribute(idx, 1));
+  } else {
+    g = new THREE.PlaneGeometry(t.size, t.box.max.z - t.box.min.z);
+    g.rotateX(-Math.PI / 2);
+    g.translate((t.box.min.x + t.box.max.x) / 2, -0.6, (t.box.min.z + t.box.max.z) / 2);
+  }
+  g.boundingSphere = t.box.getBoundingSphere(new THREE.Sphere());
+  const mat = new THREE.ShaderMaterial({
+    glslVersion: THREE.GLSL3,
+    uniforms: { ...baseShared, uTex: { value: t.tex }, uU: { value: t.u }, uV: { value: t.v } },
+    depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4,
+    vertexShader: /* glsl */`
+      out vec3 vWorld;
+      void main() {
+        vec4 w = modelMatrix * vec4(position, 1.0);
+        vWorld = w.xyz;
+        gl_Position = projectionMatrix * viewMatrix * w;
+      }`,
+    fragmentShader: /* glsl */`
+      precision highp float;
+      uniform sampler2D uTex; uniform vec3 uU, uV, uFogColor; uniform vec2 uFog; uniform float uBright;
+      in vec3 vWorld;
+      out vec4 outColor;
+      void main() {
+        vec3 p = vec3(vWorld.x, vWorld.z, 1.0);
+        vec2 uv = vec2(dot(uU, p), dot(uV, p));
+        if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0)))) discard;
+        vec3 c = texture(uTex, vec2(uv.x, 1.0 - uv.y)).rgb;
+        // at night, dimmer and a little greyer, so the buildings' colours still lead
+        c = mix(vec3(dot(c, vec3(0.3, 0.59, 0.11))), c, 0.6 + 0.4 * uBright) * (0.45 + 0.55 * uBright);
+        c = mix(c, uFogColor, smoothstep(uFog.x, uFog.y, length(vWorld - cameraPosition)));
+        outColor = vec4(c, 1.0);
+      }`,
+  });
+  t.mesh = new THREE.Mesh(g, mat);
+  t.mesh.renderOrder = 0.5 + t.z * 0.01; // after the terrain and the buildings, the finer tiles over the coarser
+  t.mesh.frustumCulled = false;
+  baseGroup.add(t.mesh);
+  return t.mesh;
+}
+function baseLoad(t) {
+  t.state = 'loading'; baseLoading++;
+  const src = baseKey;
+  baseLoader.load(BASES[src].url(t.z, t.x, t.y), tex => {
+    baseLoading--;
+    if (src !== baseKey) { tex.dispose(); t.state = 'idle'; return; }
+    tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    t.tex = tex; t.state = 'ok'; baseDirty = true;
+    baseMesh(t).material.uniforms.uTex.value = tex;
+  }, undefined, () => { baseLoading--; t.state = src === baseKey ? 'err' : 'idle'; baseDirty = true; });
+}
+function baseDrop(t) {
+  if (t.mesh) { baseGroup.remove(t.mesh); t.mesh.geometry.dispose(); t.mesh.material.dispose(); t.mesh = null; }
+  t.tex?.dispose(); t.tex = null; t.state = 'idle';
+}
+const frustum = new THREE.Frustum(), projView = new THREE.Matrix4();
+// the tiles to see: from a few covering the city, split while near enough for their pixels to be about screen pixels
+function baseUpdate(now) {
+  if (!baseKey || !base) return;
+  const cam = camera.position.toArray().concat(controls.target.toArray()).map(v => Math.round(v)).join();
+  if (!baseDirty && cam === baseCam) { baseNext(); return; }
+  if (now - baseLast < 150) return;
+  baseLast = now; baseCam = cam; baseDirty = false;
+  camera.updateMatrixWorld();
+  frustum.setFromProjectionMatrix(projView.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
+  const src = BASES[baseKey], far = groundUniforms.uFog.value.y, Q = 1.7 * Math.max(1, innerHeight / 900);
+  const span = Math.max(base.lon1 - base.lon0, (base.lat1 - base.lat0) * 1.25);
+  const z0 = Math.min(12, Math.max(5, Math.floor(Math.log2(360 / span)) - 1));
+  const tx = lon => Math.floor((lon + 180) / 360 * 2 ** z0);
+  const ty = lat => Math.floor((1 - Math.asinh(Math.tan(lat * Math.PI / 180)) / Math.PI) / 2 * 2 ** z0);
+  let open = [];
+  for (let x = tx(base.lon0); x <= tx(base.lon1); x++) for (let y = ty(base.lat1); y <= ty(base.lat0); y++) open.push(baseTile(z0, x, y));
+  const leaves = [], MAX = 180;
+  const dist = t => t.box.distanceToPoint(camera.position);
+  open = open.filter(t => frustum.intersectsBox(t.box) && dist(t) < far);
+  const roots = open.filter(t => t.state === 'idle'); // a few coarse ones under everything, so nothing shows a hole while loading
+  while (open.length) {
+    open.sort((a, b) => dist(b) - dist(a));
+    const t = open.pop(), d = dist(t);
+    if (t.z < src.max && d < t.size * Q && leaves.length + open.length + 4 <= MAX) {
+      for (const [i, j] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
+        const c = baseTile(t.z + 1, t.x * 2 + i, t.y * 2 + j);
+        if (frustum.intersectsBox(c.box) && dist(c) < far) open.push(c);
+      }
+    } else leaves.push(t);
+  }
+  // what to draw: each leaf, or while it loads its nearest loaded ancestor, or its four loaded children
+  const show = new Set();
+  baseQueue = [];
+  for (const t of leaves) {
+    t.used = now;
+    if (t.state === 'ok') { show.add(t); continue; }
+    if (t.state === 'idle') baseQueue.push(t);
+    // and its ancestor three levels up, a cheap stand-in (1 for 64) better than the city's coarse roots
+    if (t.z - 3 > z0) { const a = baseTile(t.z - 3, t.x >> 3, t.y >> 3); if (a.state === 'idle' && !baseQueue.includes(a)) baseQueue.push(a); }
+    const kids = [[0, 0], [1, 0], [0, 1], [1, 1]].map(([i, j]) => baseTiles.get(`${t.z + 1}/${t.x * 2 + i}/${t.y * 2 + j}`));
+    if (kids.every(k => k?.state === 'ok')) { kids.forEach(k => { k.used = now; show.add(k); }); continue; }
+    for (let z = t.z - 1, x = t.x >> 1, y = t.y >> 1; z >= z0; z--, x >>= 1, y >>= 1) {
+      const a = baseTiles.get(`${z}/${x}/${y}`);
+      if (a?.state === 'ok') { a.used = now; show.add(a); break; }
+    }
+  }
+  for (const t of baseTiles.values()) if (t.mesh) t.mesh.visible = show.has(t);
+  baseQueue.sort((a, b) => dist(a) - dist(b)); // nearest first: the coarse roots already cover the rest
+  baseQueue.unshift(...roots.filter(t => !baseQueue.includes(t)));
+  baseNext();
+  // keep the 400 most recently used
+  const loaded = [...baseTiles.values()].filter(t => t.tex);
+  if (loaded.length > 400) loaded.sort((a, b) => a.used - b.used).slice(0, loaded.length - 400).forEach(t => { if (!show.has(t)) baseDrop(t); });
+}
+function baseNext() { while (baseLoading < 8 && baseQueue.length) { const t = baseQueue.shift(); if (t.state === 'idle') baseLoad(t); } }
+function setBase(key) {
+  key = BASES[key] && base ? key : null;
+  if (key !== baseKey) { for (const t of baseTiles.values()) baseDrop(t); baseQueue = []; }
+  baseKey = key; baseDirty = true;
+  baseGroup.visible = !!key;
+  if (waterMesh) waterMesh.visible = !key; // the picture has its own rivers
+  try { localStorage.setItem('base', key || ''); } catch (e) { /* private mode */ }
 }
 
 // ---------- Shaders ----------
@@ -362,7 +573,8 @@ function makeMaterial(tex, pick, born) {
 // ---------- Tiles ----------
 const meshes = [];
 let loaded = 0;
-const queue = config.tiles.filter(t => t.muni === undefined || LOADED.has(t.muni));
+const TILES_IN = config.tiles.filter(t => t.muni === undefined || LOADED.has(t.muni));
+const queue = TILES_IN.slice();
 const pool = Array.from({ length: WORKERS }, () => new Worker('worker.js', { type: 'module' }));
 function addTile(m) {
   const g = new THREE.BufferGeometry();
@@ -832,13 +1044,18 @@ canvas.addEventListener('pointerup', e => {
   pinCard(i, e.clientX, e.clientY);
 });
 
-// ---------- Search by cadastral reference ----------
-const find = document.getElementById('find');
-find.setAttribute('aria-label', `Buscar por referencia catastral (${REF_LEN} caracteres)`);
-let refIndex = null;
-find.addEventListener('keydown', e => {
-  if (e.key !== 'Enter') return;
-  const q = find.value.trim().toUpperCase().replace(/\s+/g, '').slice(0, REF_LEN);
+// ---------- Search: a cadastral reference, or an address ----------
+// A reference finds its building in the table. Anything else is an address: suggestions while typing come from Photon
+// (komoot, OpenStreetMap data, made for search-as-you-type), and Enter without a suggestion asks Nominatim once, as
+// its usage policy allows (no autocomplete on Nominatim). Both only within the city's box.
+const find = document.getElementById('find'), findList = document.getElementById('find-list');
+const ADDR = !!base;
+find.placeholder = ADDR ? 'Dirección o referencia catastral' : 'Referencia catastral';
+find.setAttribute('aria-label', ADDR ? `Buscar una dirección o una referencia catastral (${REF_LEN} caracteres)`
+  : `Buscar por referencia catastral (${REF_LEN} caracteres)`);
+let refIndex = null, found = [], foundAt = -1, findTimer = 0, findAbort = null;
+function refOf(text) {
+  const q = text.trim().toUpperCase().replace(/\s+/g, '').slice(0, REF_LEN);
   if (!refIndex) {  // Gipuzkoa: the parcel alone finds its first building too
     refIndex = new Map();
     for (let i = 0; i < N; i++) if (B.ok[i]) {
@@ -847,15 +1064,106 @@ find.addEventListener('keydown', e => {
       if (r.includes('-') && !refIndex.has(r.split('-')[0])) refIndex.set(r.split('-')[0], i);
     }
   }
-  const i = refIndex.get(q);
-  find.classList.toggle('bad', i === undefined);
-  if (i === undefined) return;
+  return refIndex.get(q);
+}
+function goBuilding(i) {
   const b = building(i);
   if (state.muni >= 0 && b.muni !== state.muni) setMuni(-1, false);
   if (b.year > state.year) setYear(yMax);
   flyTo(view(b.x, b.z, 500));
   setTimeout(() => pinCard(i, innerWidth / 2, innerHeight / 2), 1400);
+}
+// an address: fly there, and open the card of the building it falls in (or the nearest within 25 m)
+function goPlace(p) {
+  const [x, z] = toLocal(p.lon, p.lat);
+  let best = -1, bd = 25 * 25;
+  for (let i = 0; i < N; i++) if (B.ok[i]) {
+    const o = i * S, dx = dv.getFloat32(o + F.x, true) - x, dz = dv.getFloat32(o + F.z, true) - z, d = dx * dx + dz * dz;
+    if (d < bd) { bd = d; best = i; }
+  }
+  if (best >= 0 && p.house) { goBuilding(best); return; }
+  if (state.muni >= 0) setMuni(-1, false);
+  flyTo(view(x, z, p.house ? 500 : 900));
+  say(p.label);
+}
+function showFound(list) {
+  found = list; foundAt = -1;
+  findList.innerHTML = list.map((p, k) => `<li role="option" id="find-${k}" data-k="${k}">${esc(p.label)}${p.sub ? `<small>${esc(p.sub)}</small>` : ''}</li>`).join('');
+  findList.hidden = !list.length;
+  find.setAttribute('aria-expanded', String(!!list.length));
+}
+function markFound(k) {
+  foundAt = (k + found.length) % found.length;
+  findList.querySelectorAll('li').forEach((li, j) => li.setAttribute('aria-selected', String(j === foundAt)));
+  find.setAttribute('aria-activedescendant', `find-${foundAt}`);
+}
+function pickFound(p) { showFound([]); find.value = p.label; find.blur(); goPlace(p); }
+const cityBox = () => [base.lon0, base.lat0, base.lon1, base.lat1];
+async function suggest(q) {
+  findAbort?.abort(); findAbort = new AbortController();
+  const [b0, b1, b2, b3] = cityBox(), ll = centreLL(); // biased to the middle of the view
+  const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=6&bbox=${b0},${b1},${b2},${b3}`
+    + (ll ? `&lat=${ll[1].toFixed(5)}&lon=${ll[0].toFixed(5)}` : '');
+  try {
+    const r = await fetch(url, { signal: findAbort.signal }).then(r => r.json());
+    if (find.value.trim() !== q) return;
+    showFound((r.features || []).map(f => {
+      const a = f.properties, street = a.street && a.housenumber ? `${a.street}, ${a.housenumber}` : a.name || a.street || '';
+      const label = a.name && a.street && a.name !== a.street ? `${a.name} (${a.street}${a.housenumber ? `, ${a.housenumber}` : ''})` : street;
+      return { label, sub: [a.postcode, a.city || a.county].filter(Boolean).join(' '), lon: f.geometry.coordinates[0],
+        lat: f.geometry.coordinates[1], house: !!a.housenumber || a.type === 'house' };
+    }).filter(p => p.label));
+  } catch (e) { /* aborted or offline */ }
+}
+function centreLL() {
+  const c = controls.target;
+  let best = -1, bd = Infinity;
+  for (let i = 0; i < N; i += 9) if (B.ok[i]) {
+    const o = i * S, dx = dv.getFloat32(o + F.x, true) - c.x, dz = dv.getFloat32(o + F.z, true) - c.z, d = dx * dx + dz * dz;
+    if (d < bd) { bd = d; best = i; }
+  }
+  return best < 0 ? null : [dv.getFloat32(best * S + F.lon, true), dv.getFloat32(best * S + F.lat, true)];
+}
+async function nominatim(q) {
+  const [b0, b1, b2, b3] = cityBox();
+  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=es&accept-language=es`
+    + `&bounded=1&viewbox=${b0},${b3},${b2},${b1}&q=${encodeURIComponent(q)}`;
+  try {
+    const [r] = await fetch(url).then(r => r.json());
+    if (!r) return false;
+    goPlace({ label: r.display_name.split(',').slice(0, 2).join(','), lon: +r.lon, lat: +r.lat,
+      house: r.addresstype === 'house' || r.type === 'house' || /^\d/.test(r.address?.house_number || r.display_name) });
+    return true;
+  } catch (e) { return false; }
+}
+find.addEventListener('input', () => {
+  find.classList.remove('bad');
+  clearTimeout(findTimer);
+  const q = find.value.trim();
+  if (!ADDR || q.length < 3 || /^[0-9A-Z]{7}[0-9A-Z-]*$/i.test(q) && /\d{5}/.test(q)) { showFound([]); return; }
+  findTimer = setTimeout(() => suggest(q), 350);
 });
+find.addEventListener('keydown', async e => {
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    if (!found.length) return;
+    e.preventDefault(); markFound(foundAt + (e.key === 'ArrowDown' ? 1 : -1)); return;
+  }
+  if (e.key === 'Escape') { showFound([]); return; }
+  if (e.key !== 'Enter') return;
+  if (foundAt >= 0) { pickFound(found[foundAt]); return; }
+  const i = refOf(find.value);
+  if (i !== undefined) { showFound([]); find.blur(); goBuilding(i); return; }
+  if (ADDR && find.value.trim().length >= 3) {
+    clearTimeout(findTimer); findAbort?.abort(); showFound([]);
+    if (await nominatim(find.value.trim())) { find.blur(); return; }
+  }
+  find.classList.add('bad');
+});
+findList.addEventListener('pointerdown', e => {
+  const li = e.target.closest('li');
+  if (li) { e.preventDefault(); pickFound(found[+li.dataset.k]); }
+});
+find.addEventListener('blur', () => setTimeout(() => showFound([]), 150));
 
 // ---------- Tourist mode: what to see, walking routes ----------
 // data/turismo.json (pipeline): must-sees by relevance, and routes of 5–12 stops in walking order. An entry is a
@@ -1110,6 +1418,7 @@ function setTheme(name) {
   groundUniforms.uOut.value.set(c.sky); groundUniforms.uFogColor.value.set(c.sky);
   uniforms.uFogColor.value.set(c.sky); uniforms.uMaquette.value.set(c.maquette);
   borderMat.color.set(c.border); waterMat.color.set(c.water);
+  baseShared.uBright.value = name === 'noche' ? 0 : 1;
   document.querySelector('meta[name="theme-color"]').content = c.meta;
   themeBtn.querySelector('path').setAttribute('d', name === 'noche' ? SUN : MOON);
   themeBtn.title = name === 'noche' ? 'Pasar a día (N)' : 'Pasar a noche (N)';
@@ -1141,7 +1450,8 @@ document.getElementById('t-shot').onclick = () => {
   x.font = `700 ${Math.round(30 * s)}px Fraunces, Georgia, serif`; x.fillStyle = css.getPropertyValue('--ink');
   x.fillText(LABEL, 24 * s, 48 * s);
   x.font = `600 ${Math.round(13 * s)}px Manrope, sans-serif`; x.fillStyle = css.getPropertyValue('--accent');
-  x.fillText(`${state.year >= yMax ? 'Hoy' : state.year} · spain-cities.quijada.uk · Juanma Quijada · ${FORAL ? FORAL.name : 'Catastro'}, IGN, OSM`, 24 * s, 72 * s);
+  x.fillText(`${state.year >= yMax ? 'Hoy' : state.year} · spain-cities.quijada.uk · Juanma Quijada · ${FORAL ? FORAL.name : 'Catastro'}, IGN, OSM`
+    + (baseKey ? ` · ${baseCreditEl.textContent}` : ''), 24 * s, 72 * s);
   out.toBlob(blob => {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -1151,15 +1461,84 @@ document.getElementById('t-shot').onclick = () => {
     say('Imagen guardada');
   });
 };
+// the base map: a menu under (or, on a phone, beside) its button; the credit sits above the dock
+const baseBtn = document.getElementById('t-base'), baseMenu = document.getElementById('base-menu');
+const baseCreditEl = document.getElementById('base-credit'), dock = document.querySelector('.dock');
+baseBtn.hidden = !base;
+function placeBaseCredit() { baseCreditEl.style.bottom = `${innerHeight - dock.getBoundingClientRect().top + 6}px`; }
+function showBase(key) {
+  setBase(key);
+  baseBtn.setAttribute('aria-pressed', String(!!baseKey));
+  baseMenu.querySelectorAll('button').forEach(b => b.setAttribute('aria-checked', String((b.dataset.base || null) === baseKey)));
+  baseCreditEl.innerHTML = baseKey ? BASES[baseKey].credit : '';
+  baseCreditEl.hidden = !baseKey;
+  if (baseKey) placeBaseCredit();
+}
+function openBaseMenu(open) {
+  baseMenu.hidden = !open;
+  baseBtn.setAttribute('aria-expanded', String(open));
+  if (!open) return;
+  const r = baseBtn.getBoundingClientRect(), w = baseMenu.offsetWidth, h = baseMenu.offsetHeight;
+  if (r.bottom + 6 + h < innerHeight - 160) { baseMenu.style.top = `${r.bottom + 6}px`; baseMenu.style.left = `${Math.max(8, r.right - w)}px`; }
+  else { baseMenu.style.top = `${Math.max(8, r.bottom - h)}px`; baseMenu.style.left = `${Math.max(8, r.left - w - 6)}px`; }
+  baseMenu.querySelector('[aria-checked="true"]')?.focus();
+}
+baseBtn.onclick = () => openBaseMenu(baseMenu.hidden);
+baseMenu.onclick = e => { const b = e.target.closest('button'); if (b) { showBase(b.dataset.base); openBaseMenu(false); } };
+addEventListener('pointerdown', e => { if (!baseMenu.hidden && !e.target.closest('#base-menu, #t-base')) openBaseMenu(false); });
+addEventListener('resize', () => { if (baseKey) placeBaseCredit(); });
+// the arrows move over the map (the view's forward, back and sides), Shift + arrows turn and tilt, + and − zoom;
+// held keys keep going, in the animation loop
+const held = new Set();
+const MOVE_KEYS = new Set(['arrowup', 'arrowdown', 'arrowleft', 'arrowright', '+', '-', '=', '_']);
+addEventListener('keyup', e => { held.delete(e.key.toLowerCase()); if (e.key === 'Shift') held.clear(); });
+addEventListener('blur', () => held.clear());
+const sph = new THREE.Spherical();
+let heldLast = 0;
+function stepKeys(now) {
+  const dt = Math.min(0.05, (now - heldLast) / 1000);
+  heldLast = now;
+  if (!held.size || ar) return;
+  const off = camera.position.clone().sub(controls.target), d = off.length();
+  const fwd = new THREE.Vector3(-off.x, 0, -off.z).normalize(), side = new THREE.Vector3(-fwd.z, 0, fwd.x);
+  const has = k => held.has(k);
+  const ax = (has('arrowright') ? 1 : 0) - (has('arrowleft') ? 1 : 0), ay = (has('arrowup') ? 1 : 0) - (has('arrowdown') ? 1 : 0);
+  const zoom = (has('+') || has('=') ? 1 : 0) - (has('-') || has('_') ? 1 : 0);
+  if (held.has('shift')) {
+    sph.setFromVector3(off);
+    sph.theta -= ax * 1.4 * dt;
+    sph.phi = Math.min(controls.maxPolarAngle, Math.max(0.08, sph.phi - ay * 0.9 * dt));
+    camera.position.copy(controls.target).add(off.setFromSpherical(sph));
+  } else if (ax || ay) {
+    const step = fwd.multiplyScalar(ay).add(side.multiplyScalar(ax)).normalize().multiplyScalar(d * 0.9 * dt);
+    controls.target.add(step); camera.position.add(step);
+    controls.target.y = groundAt(controls.target.x, controls.target.z);
+  }
+  if (zoom) {
+    const d2 = Math.min(controls.maxDistance, Math.max(controls.minDistance, d * Math.exp(-zoom * 1.6 * dt)));
+    camera.position.sub(controls.target).setLength(d2).add(controls.target);
+  }
+}
 addEventListener('keydown', e => {
   if (e.target.closest('input, select, textarea') || e.metaKey || e.ctrlKey || e.altKey || about.open) return;
   const k = e.key.toLowerCase();
+  if (e.key === 'Escape' && !baseMenu.hidden) { openBaseMenu(false); baseBtn.focus(); return; }
+  if (!baseMenu.hidden && e.target.closest('#base-menu')) return;
+  // on a walk, ← and → still go from stop to stop
+  if (MOVE_KEYS.has(k) && !ar && !(walk && (k === 'arrowright' || k === 'arrowleft') && !e.shiftKey)) {
+    e.preventDefault();
+    if (!held.size) heldLast = performance.now();
+    held.add(k); if (e.shiftKey) held.add('shift');
+    flight = null; turn = null; setOrbit(false);
+    return;
+  }
   if (k >= '1' && k <= '4') setMode(+k - 1);
   else if (k === ' ') { e.preventDefault(); document.getElementById('play').click(); }
   else if (k === 'h') goHome();
   else if (k === 'r') setOrbit(!controls.autoRotate);
   else if (k === 'n') setTheme(theme === 'noche' ? 'dia' : 'noche');
   else if (k === 'v' && SEE.length) setSee(!seeOn);
+  else if (k === 'b' && base) openBaseMenu(baseMenu.hidden);
   else if (walk && (k === 'arrowright' || k === 'arrowleft')) { e.preventDefault(); goStop(walk.k + (k === 'arrowright' ? 1 : -1)); }
   else if (k === 'escape' && ar) exitAR();
   else if (k === 'escape') { if (!routesBox.hidden) openRoutes(false); else { if (walk) endWalk(); pinCard(-1); } }
@@ -1201,7 +1580,7 @@ const AR_HASH = new URLSearchParams(location.hash.slice(1)).get('ar');
 const CAN_AR = !!navigator.mediaDevices?.getUserMedia && 'DeviceOrientationEvent' in window && matchMedia('(pointer: coarse)').matches;
 arBtn.hidden = !CAN_AR && !AR_HASH;
 const d2r = THREE.MathUtils.degToRad, r2d = THREE.MathUtils.radToDeg;
-const EYE = 1.6, LONG_FOV = 67, NEAR = 20; // metres; degrees across the long side of a phone's main camera; metres: dots and 3D only for the buildings this close (to their edge)
+const EYE = 1.6, LONG_FOV = 67, NEAR = 25; // metres; degrees across the long side of a phone's main camera; metres: dots and 3D only for the buildings whose facade is this close
 // eye level: the buildings sit on the lowest ground under them, so stand on the median of the nearby ones' bases
 function eyeAt(x, z) {
   const bases = [];
@@ -1287,7 +1666,9 @@ function onFix(p) {
     return;
   }
   ar.far = 0;
-  const [x, z] = ar.fit.at(lat, lon);
+  let [x, z] = ar.fit.at(lat, lon);
+  x += ar.bias.x; z += ar.bias.z; // what the skyline has learnt
+  if (ar.walls) [x, z] = outside(ar.walls, x, z);
   ar.fix = new THREE.Vector3(x, eyeAt(x, z), z);
   if (!ar.pos || ar.demo) { ar.demo = false; ar.pos = ar.fix.clone(); }
   ar.acc = accuracy;
@@ -1305,7 +1686,8 @@ function arStatusText() {
     return;
   }
   const gps = ar.acc ? `GPS ±${Math.round(ar.acc)} m` : 'Buscando tu posición…';
-  arStatus.textContent = `${gps} · ${ar.abs ? 'brújula' : ar.raw ? 'sin brújula: desliza para orientar' : 'sin sensores'}`;
+  const fits = performance.now() - ar.skyAt < 4000 ? ' · ajustado por la silueta' : '';
+  arStatus.textContent = `${gps} · ${ar.abs ? 'brújula' : ar.raw ? 'sin brújula: desliza para orientar' : 'sin sensores'}${fits}`;
 }
 // demo: stand where the map was looking if it was close, or else in sight of the first must-see; facing it
 function arDemo() {
@@ -1360,7 +1742,191 @@ function setDots(on) {
   arDotsBtn.setAttribute('aria-pressed', String(on));
   arDots.visible = on;
 }
-// the dots: the buildings within NEAR metres of one's position (to the edge of the building, as if round), rebuilt as one walks
+// ---------- Facades: the cadastral footprints around one, read again from the tiles ----------
+// The dots sit on the facade one faces (the footprint's nearest point), only for the buildings in sight (no other
+// footprint across the line to it); a GPS fix that falls inside a building is moved out to the street; and the camera's
+// skyline is matched against the one the footprints and their heights draw, to correct the compass (and a few metres
+// of position). All from the Catastro and the phone's own picture: no service, no model.
+const tileCache = new Map();
+function tileData(t) {
+  let v = tileCache.get(t.file);
+  if (!v) v = packs[t.pack].then(buf => parseTile(buf.slice(t.offset, t.offset + t.length)));
+  tileCache.set(t.file, v);
+  return v;
+}
+// within R of `at`: every wall edge (a → b), its building, its part and the part's top; parts as runs of edges
+async function arWalls(at, R = 120) {
+  const ax = [], az = [], bx = [], bz = [], g = [], top = [], parts = [], TS = config.tileSize;
+  for (const t of TILES_IN) {
+    const f = t.file.split('_').map(Number), tx = f[f.length - 2], tz = f[f.length - 1];
+    if (Math.abs((tx + 0.5) * TS - at.x) > TS / 2 + R || Math.abs((tz + 0.5) * TS - at.z) > TS / 2 + R) continue;
+    const d = await tileData(t), [ox, oz] = d.origin;
+    for (let b = 0; b < d.nB; b++) {
+      const gid = d.gid[b];
+      if (!B.ok[gid]) continue;
+      for (let q = d.partStart[b]; q < d.partStart[b + 1]; q++) {
+        const h = (d.base[b] + Math.round(d.height[q] * 10)) / 10, first = ax.length;
+        let near = false;
+        for (let r = d.ringStart[q]; r < d.ringStart[q + 1]; r++) {
+          const s0 = d.vertStart[r], n = d.vertStart[r + 1] - s0;
+          for (let i = 0; i < n; i++) {
+            const a = s0 + i, c = s0 + (i + 1) % n;
+            const x0 = ox + d.xz[2 * a] / 10, z0 = oz + d.xz[2 * a + 1] / 10;
+            ax.push(x0); az.push(z0); bx.push(ox + d.xz[2 * c] / 10); bz.push(oz + d.xz[2 * c + 1] / 10);
+            g.push(gid); top.push(h);
+            near ||= Math.abs(x0 - at.x) < R && Math.abs(z0 - at.z) < R;
+          }
+        }
+        if (near) parts.push([first, ax.length, gid]);
+        else { ax.length = az.length = bx.length = bz.length = g.length = top.length = first; }
+      }
+    }
+  }
+  const F32 = a => Float32Array.from(a);
+  return { at: at.clone(), ax: F32(ax), az: F32(az), bx: F32(bx), bz: F32(bz), g: Int32Array.from(g), top: F32(top), parts, n: ax.length };
+}
+// the nearest point of segment a–b to p: [x, z, squared distance]
+function nearestOn(px, pz, x0, z0, x1, z1) {
+  const dx = x1 - x0, dz = z1 - z0, l = dx * dx + dz * dz;
+  const t = l ? Math.max(0, Math.min(1, ((px - x0) * dx + (pz - z0) * dz) / l)) : 0;
+  const x = x0 + t * dx, z = z0 + t * dz;
+  return [x, z, (x - px) ** 2 + (z - pz) ** 2];
+}
+// does segment p–q cross segment a–b
+function crosses(px, pz, qx, qz, x0, z0, x1, z1) {
+  const d = (qx - px) * (z1 - z0) - (qz - pz) * (x1 - x0);
+  if (Math.abs(d) < 1e-9) return false;
+  const t = ((x0 - px) * (z1 - z0) - (z0 - pz) * (x1 - x0)) / d, u = ((x0 - px) * (qz - pz) - (z0 - pz) * (qx - px)) / d;
+  return t > 0 && t < 1 && u >= 0 && u <= 1;
+}
+// each building's facade point nearest to p, if within `reach` and in sight
+function facades(w, p, reach) {
+  const best = new Map();
+  for (let e = 0; e < w.n; e++) {
+    const [x, z, d2] = nearestOn(p.x, p.z, w.ax[e], w.az[e], w.bx[e], w.bz[e]);
+    if (d2 > reach * reach) continue;
+    const o = best.get(w.g[e]);
+    if (!o || d2 < o[2]) best.set(w.g[e], [x, z, d2]);
+  }
+  const out = [];
+  for (const [gid, [x, z, d2]] of best) {
+    // a little short of the wall, so that the wall itself does not count; its own building never hides it
+    const d = Math.sqrt(d2), k = d > 0.4 ? (d - 0.3) / d : 0, qx = p.x + (x - p.x) * k, qz = p.z + (z - p.z) * k;
+    let hid = false;
+    for (let e = 0; e < w.n && !hid; e++) if (w.g[e] !== gid) hid = crosses(p.x, p.z, qx, qz, w.ax[e], w.az[e], w.bx[e], w.bz[e]);
+    if (!hid) out.push({ gid, x, z, d });
+  }
+  return out;
+}
+// a fix inside a footprint is impossible: out to the street, 1.2 m past the nearest wall of that part
+function outside(w, x, z) {
+  for (let pass = 0; pass < 2; pass++) {
+    let moved = false;
+    for (const [s0, s1] of w.parts) {
+      let inside = false;
+      for (let e = s0; e < s1; e++) {
+        const z0 = w.az[e], z1 = w.bz[e];
+        if ((z0 > z) !== (z1 > z) && x < w.ax[e] + (z - z0) / (z1 - z0) * (w.bx[e] - w.ax[e])) inside = !inside;
+      }
+      if (!inside) continue;
+      let q = null;
+      for (let e = s0; e < s1; e++) { const r = nearestOn(x, z, w.ax[e], w.az[e], w.bx[e], w.bz[e]); if (!q || r[2] < q[2]) q = r; }
+      const d = Math.sqrt(q[2]) || 1;
+      x = q[0] + (q[0] - x) / d * 1.2; z = q[1] + (q[1] - z) / d * 1.2;
+      moved = true;
+      break;
+    }
+    if (!moved) break;
+  }
+  return [x, z];
+}
+
+// the skyline: per column of a small copy of the picture, how far down the sky goes (a smooth bright run from the top);
+// against the footprints' skyline from where one is, for compass turns of ±20° and steps of 4 m. Applied only when it
+// fits clearly better than as things are.
+const sky = { c: document.createElement('canvas') };
+sky.x = sky.c.getContext('2d', { willReadFrequently: true });
+const azOf = v => Math.atan2(v.x, -v.z), wrap = a => ((a + Math.PI) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI;
+function skyline() {
+  const vw = arVideo.videoWidth, vh = arVideo.videoHeight, W = innerWidth, H = innerHeight;
+  if (!vw || !vh) return null;
+  const cw = 64, ch = Math.round(64 * H / W);
+  if (sky.c.width !== cw || sky.c.height !== ch) { sky.c.width = cw; sky.c.height = ch; }
+  const sc = Math.max(W / vw, H / vh), sw = W / sc, sh = H / sc; // as the video shows, cover
+  sky.x.drawImage(arVideo, (vw - sw) / 2, (vh - sh) / 2, sw, sh, 0, 0, cw, ch);
+  const px = sky.x.getImageData(0, 0, cw, ch).data, obs = [];
+  const camAz = azOf(V.set(0, 0, -1).applyQuaternion(camera.quaternion));
+  for (let c = 0; c < cw; c++) {
+    const at = y => { const k = (y * cw + c) * 4; return [px[k], px[k + 1], px[k + 2]]; };
+    const lum = ([r, g, b]) => (0.3 * r + 0.59 * g + 0.11 * b) / 255;
+    let [r, g, b] = at(0), L = lum([r, g, b]);
+    if (L < 0.42 || b < r - 8) continue; // the top is not sky: a wall, a tree, the night
+    let y = 1;
+    for (; y < ch; y++) {
+      const q = at(y), l = lum(q);
+      if (Math.abs(l - L) > 0.1 || Math.abs(q[2] - b) > 26 || q[2] < q[0] - 8) break;
+      L = L * 0.8 + l * 0.2; b = b * 0.8 + q[2] * 0.2;
+    }
+    if (y < 3 || y > ch * 0.92) continue; // all sky, or nothing: says nothing
+    V.set((c + 0.5) / cw * 2 - 1, 1 - y / ch * 2, 0.5).unproject(camera).sub(camera.position).normalize();
+    obs.push([wrap(azOf(V) - camAz), Math.asin(V.y)]);
+  }
+  return obs.length >= cw * 0.3 ? { obs, camAz } : null;
+}
+// the footprints' skyline from (px, pz): elevation of the highest wall top along each azimuth, from a0 in `step`s
+function profile(w, px, pz, eye, a0, n, step) {
+  const out = new Float32Array(n);
+  for (let k = 0; k < n; k++) {
+    const a = a0 + k * step, dx = Math.sin(a), dz = -Math.cos(a);
+    let best = 0;
+    for (let e = 0; e < w.n; e++) {
+      const ex = w.bx[e] - w.ax[e], ez = w.bz[e] - w.az[e], d = dx * ez - dz * ex;
+      if (Math.abs(d) < 1e-9) continue;
+      const fx = w.ax[e] - px, fz = w.az[e] - pz, t = (fx * ez - fz * ex) / d, u = (fx * dz - fz * dx) / d;
+      if (t > 0.5 && u >= 0 && u <= 1) { const el = Math.atan2(w.top[e] - eye, t); if (el > best) best = el; }
+    }
+    out[k] = best;
+  }
+  return out;
+}
+function matchSkyline(now, s = skyline()) {
+  const w = ar.walls;
+  if (!s || !w) return;
+  const STEP = d2r(1), SHIFT = 20, CAP = d2r(6);
+  let lo = Infinity, hi = -Infinity;
+  for (const [a] of s.obs) { lo = Math.min(lo, a); hi = Math.max(hi, a); }
+  const a0 = lo - d2r(SHIFT + 1), n = Math.ceil((hi - lo) / STEP) + 2 * SHIFT + 4;
+  let best = null, here = Infinity;
+  for (const [ox, oz] of [[0, 0], [4, 0], [-4, 0], [0, 4], [0, -4]]) {
+    const prof = profile(w, ar.pos.x + ox, ar.pos.z + oz, ar.pos.y, s.camAz + a0, n, STEP);
+    if (!ox && !oz) {
+      // a skyline with nothing in it (open square, all one height) cannot place anything
+      let m = 0, v = 0;
+      for (const [a] of s.obs) { const p = prof[Math.round((a - a0) / STEP)] || 0; m += p; v += p * p; }
+      m /= s.obs.length;
+      if (Math.sqrt(Math.max(0, v / s.obs.length - m * m)) < d2r(2.5)) return;
+    }
+    for (let sh = -SHIFT; sh <= SHIFT; sh++) {
+      let err = 0;
+      for (const [a, el] of s.obs) {
+        const p = prof[Math.round((a - a0) / STEP) + sh] || 0;
+        err += Math.min(Math.abs(p - el), CAP);
+      }
+      err /= s.obs.length;
+      if (!ox && !oz && !sh) here = err;
+      if (!best || err < best.err) best = { err, sh, ox, oz };
+    }
+  }
+  if (!best || best.err > d2r(2.5) || here - best.err < d2r(0.5)) return;
+  // the picture's columns are really `sh` degrees further round: turn the compass that way, and step part of the way
+  ar.offset -= best.sh * 0.6;
+  const k = 0.5, bx = Math.max(-12, Math.min(12, ar.bias.x + best.ox * k)), bz = Math.max(-12, Math.min(12, ar.bias.z + best.oz * k));
+  ar.pos.x += bx - ar.bias.x; ar.pos.z += bz - ar.bias.z; ar.bias.set(bx, 0, bz);
+  ar.skyAt = now;
+}
+
+// the dots: on the facade of each building in sight within NEAR metres, rebuilt as one walks (until the footprints
+// around are read, at the building's middle)
 let arDots = null;
 const dotMat = new THREE.ShaderMaterial({
   uniforms: { uPx: { value: 1 }, uHi: { value: -1 } },
@@ -1389,15 +1955,18 @@ const dotMat = new THREE.ShaderMaterial({
 });
 function arBuildDots(at) {
   const pos = [], color = [], gid = [], cs = periods.map(p => new THREE.Color(p.color));
-  for (let i = 0; i < N; i++) {
+  const put = (i, x, z) => {
+    const o = i * S, h = dv.getUint16(o + F.h, true) / 10;
+    pos.push(x, dv.getFloat32(o + F.base, true) + Math.min(Math.max(h * 0.4, 2.5), 6), z); // about the first floor
+    const c = cs[B.period[i]] || cs[0];
+    color.push(c.r, c.g, c.b); gid.push(i);
+  };
+  if (ar.walls) for (const f of facades(ar.walls, at, NEAR)) put(f.gid, f.x, f.z);
+  else for (let i = 0; i < N; i++) {
     if (!B.ok[i]) continue;
     const o = i * S, x = dv.getFloat32(o + F.x, true), z = dv.getFloat32(o + F.z, true);
     const reach = NEAR + Math.sqrt(dv.getUint32(o + F.area, true) / Math.PI);
-    if ((x - at.x) ** 2 + (z - at.z) ** 2 > reach * reach) continue;
-    const h = dv.getUint16(o + F.h, true) / 10;
-    pos.push(x, dv.getFloat32(o + F.base, true) + Math.min(Math.max(h * 0.6, 2.5), 14), z);
-    const c = cs[B.period[i]] || cs[0];
-    color.push(c.r, c.g, c.b); gid.push(i);
+    if ((x - at.x) ** 2 + (z - at.z) ** 2 <= reach * reach) put(i, x, z);
   }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
@@ -1413,7 +1982,7 @@ async function enterAR(demo = false) {
   if (ar) return;
   arStart.hidden = true;
   ar = { back: { target: controls.target.clone(), position: camera.position.clone() }, offset: 0, yaw: 0, pitch: 0,
-    q: camera.quaternion.clone(), seen: new Map(), places: arPlaces(), tags: new Map(), look: -1, lookAt: 0, arrived: -1 };
+    q: camera.quaternion.clone(), seen: new Map(), bias: new THREE.Vector3(), skyAt: -1e9, skyTry: 0, places: arPlaces(), tags: new Map(), look: -1, lookAt: 0, arrived: -1 };
   // iOS asks for the compass inside the tap, before anything else waits
   try { if (DeviceOrientationEvent.requestPermission) await DeviceOrientationEvent.requestPermission(); } catch (e) { /* refused */ }
   setOrbit(false); flight = null; turn = null; stopPlay();
@@ -1544,6 +2113,17 @@ function arFrame(now) {
   camera.quaternion.copy(ar.q);
   camera.updateMatrixWorld();
   if (!ar.pos) { renderer.clear(); return; }
+  if (!ar.wallsBusy && (!ar.walls || Math.hypot(ar.walls.at.x - ar.pos.x, ar.walls.at.z - ar.pos.z) > 40)) {
+    ar.wallsBusy = true;
+    const mine = ar;
+    arWalls(ar.pos).then(w => { if (ar !== mine) return; ar.walls = w; ar.wallsBusy = false; ar.dotsAt = null; });
+  }
+  if (ar.stream && ar.raw && !ar.demo && ar.walls && now - ar.skyTry > 700) {
+    ar.skyTry = now;
+    const was = ar.skyAt;
+    matchSkyline(now);
+    if (ar.skyAt !== was || now - was < 4500) arStatusText();
+  }
   if (ar.dots && (!ar.dotsAt || ar.dotsAt.distanceTo(ar.pos) > 3)) arBuildDots(ar.pos);
   renderer.render(scene, camera);
 
@@ -1678,6 +2258,7 @@ else {
 }
 setMuni(munis.length > 1 ? start : munis[0].id, false);
 setTheme(theme);
+try { if (localStorage.getItem('base')) showBase(localStorage.getItem('base')); } catch (e) { /* private mode */ }
 {
   const h = HASH0;
   const y = +h.get('ano');
@@ -1700,10 +2281,12 @@ renderer.setAnimationLoop(now => {
   stepPlay(now);
   stepFlight(now);
   stepTurn(now);
+  stepKeys(now);
   controls.update();
   const d = camera.position.distanceTo(controls.target);
   uniforms.uFog.value.set(d * 1.6, d * 4.5);
   groundUniforms.uFog.value.copy(uniforms.uFog.value);
+  baseUpdate(now);
   if (pointer && pinned === -1 && now - lastPick > 60 && !flight) {
     lastPick = now;
     let i = pick(pointer[0], pointer[1]);

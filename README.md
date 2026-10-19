@@ -1,18 +1,18 @@
 # Ciudades de España, edificio a edificio
 
-Cada edificio en pie de 29 ciudades españolas en 3D: las más pobladas, las más visitadas y las 15 del Grupo de Ciudades
-Patrimonio de la Humanidad (Sevilla con el Aljarafe y el resto de la provincia, Madrid, Barcelona, Valencia, Málaga,
-Granada, Córdoba, Toledo, Santiago, San Sebastián, Palma, Las Palmas…), coloreado por
-época de construcción, uso o número de plantas, con filtro por municipio. Pipeline en Python que alimenta un visor
-three.js sin build step.
+Los edificios en pie de las ciudades y pueblos de España en 3D, uno a uno: coloreados por época de construcción, uso, número de plantas o
+patrimonio, con filtro por municipio. Empezó con Sevilla y su provincia y crece casi a diario (capitales, las ciudades
+más pobladas y más visitadas, las del Grupo de Ciudades Patrimonio de la Humanidad, pueblos…); la meta es el país
+entero. Pipeline en Python (Catastro, IGN, OSM, IAPH, Wikidata) que alimenta un visor three.js sin build step.
 
 Tres formas de verlo:
 
 - **En el mapa 3D** (navegador o móvil): la ciudad entera por épocas, con la línea del tiempo, las fichas de cada
-  edificio y el patrimonio.
+  edificio y el patrimonio; buscador de direcciones y referencias catastrales y, si se quiere, mapa base (OSM u
+  ortofoto PNOA) bajo los edificios.
 - **De turismo**: los imprescindibles de cada ciudad y rutas a pie parada a parada, con el resumen de Wikipedia.
-- **En la calle, con la cámara** (patrimonio aumentado): sobre la imagen de la cámara, los edificios que tienes a
-  20–30 m, con su época, su año y su ficha; también guía las rutas. Funciona en el navegador del móvil y en la
+- **En la calle, con la cámara** (patrimonio aumentado): sobre la imagen de la cámara, un punto en la fachada de
+  cada edificio que tienes a la vista a 25 m o menos, con su época, su año y su ficha; también guía las rutas. Funciona en el navegador del móvil y en la
   **app Android** (`android/`, descargable desde el portal), que pide de entrada los permisos de cámara y ubicación.
 
 **Portal:** [spain-cities.quijada.uk](https://spain-cities.quijada.uk): todas las ciudades; antes de cargar nada se
@@ -79,7 +79,23 @@ Con muchas ciudades, las tarjetas se agrupan por comunidad autónoma y se filtra
 
 Dos temas, noche (por defecto) y día, que se recuerdan en el navegador. Herramientas: vista inicial, dar la vuelta,
 tema, copiar enlace a la vista (`#v=x,z,distancia,azimut,elevación`, más `ano` y `ref` si hay año o ficha), guardar
-imagen. Atajos: `1`–`4` modos, `Espacio` reproducir, `H`, `R`, `N`, `V`, `←` `→`, `Esc`. Hitos de cada ciudad sobre el histograma.
+imagen. Atajos: `1`–`4` modos, `Espacio` reproducir, `H`, `R`, `N`, `V`, `B`, `Esc`. Hitos de cada ciudad sobre el histograma.
+Con el teclado: las flechas desplazan el mapa (adelante, atrás y a los lados de la vista), `Mayús` + flechas giran e
+inclinan y `+` `−` acercan; se puede mantener la tecla. En una ruta, `←` `→` siguen pasando de parada.
+
+Mapa base (botón de capas o `B`), apagado por defecto y recordado en el navegador: OpenStreetMap o la ortofoto PNOA
+del IGN (solo fuentes abiertas). Son teselas Web Mercator puestas sobre los mismos vértices que el relieve
+(las celdas del terreno bajo cada tesela, con lo que sobra descartado en el shader), así que ni flotan ni se hunden; el
+uv es un ajuste afín de x, z locales sobre las cuatro esquinas (lon/lat → UTM con la serie de Krüger). El huso del
+marco no está en `city.json`: sale de comparar la lon/lat de un edificio con su x, z. Se piden primero las más cercanas;
+mientras llegan se ve la tesela de tres niveles más arriba o, en su defecto, unas pocas gruesas de toda la ciudad. De
+noche se oscurecen para que manden los colores de los edificios.
+
+Buscador: una referencia catastral abre su edificio; cualquier otra cosa es una dirección. Las sugerencias mientras se
+escribe salen de [Photon](https://photon.komoot.io) (datos de OSM, pensado para autocompletar) dentro de la caja de la
+ciudad y cerca del centro de la vista; `Intro` sin sugerencia elegida pregunta una vez a Nominatim (su política de uso
+no permite autocompletar). Al elegir un portal, vuela al edificio que cae debajo (o al más cercano a 25 m) y abre su
+ficha; una calle o un lugar, solo vuela.
 
 Modo turismo, si el sitio trae `data/turismo.json`: «Qué ver» pone el nombre sobre los imprescindibles (los más
 relevantes que caben sin pisarse) y «Rutas» abre paseos parada a parada, con la línea entre paradas, el texto de cada
@@ -92,8 +108,22 @@ En el móvil, «Ver con la cámara» pone la cámara de fondo y encima la ciudad
 posición (pasada al marco local con un ajuste por mínimos cuadrados sobre los edificios cercanos, que llevan lon/lat y
 x/z), la brújula y el giroscopio la orientación (`deviceorientationabsolute` en Android, `webkitCompassHeading` en iOS) y
 el ojo va a 1,6 m sobre la mediana de las cotas de los edificios de alrededor. Sobre la cámara solo va lo que tienes
-cerca: un punto por cada edificio a 20–30 m (20 m hasta su borde, `NEAR` en `web/app.js`), del color de su época;
-«3D» dibuja además esos mismos edificios, transparentes. Lo que queda más lejos no se pinta. La escena sirve para saber qué edificio hay bajo la retícula («Estás mirando»: nombre, año, época,
+cerca y a la vista: un punto por cada edificio cuya fachada está a 25 m o menos (`NEAR` en `web/app.js`), del color de
+su época, puesto en esa fachada (el punto de su planta más cercano a ti, a la altura del primer piso) y solo si ninguna
+otra planta se cruza en la línea hasta él; «3D» dibuja además esos edificios, transparentes. Lo demás no se pinta.
+
+Para que los puntos caigan en su sitio pese al GPS (5–20 m entre edificios) y la brújula (10–20°), todo con datos
+abiertos y código propio, sin servicios externos: las plantas del Catastro alrededor se leen otra vez de las teselas
+(`web/tile.js`, compartido con el worker); una posición que cae dentro de un edificio sale a la calle, a 1,2 m de su
+pared más cercana; y cada 0,7 s se compara la silueta de la cámara con la de las plantas. La de la cámara sale de una
+copia de 64 columnas: en cada una, hasta dónde baja el cielo (un tramo claro y liso desde arriba; si arriba no hay cielo,
+la columna no cuenta). La de las plantas, del borde superior de las paredes que corta cada acimut desde donde estás.
+Se prueban giros de ±20° y pasos de 4 m; si alguna combinación encaja claramente mejor (error medio < 2,5° y medio grado
+mejor que como está), se gira la brújula un 60 % de lo hallado y se desplaza la posición la mitad (hasta 12 m). Sin
+cielo (de noche, bajo soportales, con árboles delante) o en una plaza abierta no corrige nada. La barra de estado dice
+«ajustado por la silueta» mientras funciona.
+
+La escena sirve para saber qué edificio hay bajo la retícula («Estás mirando»: nombre, año, época,
 plantas, distancia) y si cada monumento con nombre está a la vista o detrás de algo. En una ruta empieza por la parada
 más cercana, una flecha en el borde señala la siguiente y al llegar (25 m) abre su ficha. Deslizar a los lados corrige la
 brújula; tocar un edificio abre su ficha. `#ar=demo` simula estar junto al primer imprescindible, sin cámara ni sensores.
@@ -107,7 +137,7 @@ En el portal, «Estoy en la calle» busca la ciudad y los municipios más cercan
 
 | Sitio | Municipios | Worker |
 |---|---|---|
-| https://spain-cities.quijada.uk | Portal: Sevilla (provincia, con selecciones) y otras 28 ciudades, por comunidad | `spain-cities` |
+| https://spain-cities.quijada.uk | Portal: todas las ciudades, por comunidad; Sevilla con su provincia y selecciones | `spain-cities` |
 | https://sevilla.quijada.uk | Sevilla | `sevilla-edificios` |
 | https://aljarafe.quijada.uk | Los 31 del Aljarafe, sin la capital | `aljarafe` |
 | tomares, sevilla-aljarafe, sevilla-provincia, madrid, barcelona .quijada.uk | 301 al portal (`REDIRECT` en sites.py) | los mismos |
@@ -168,4 +198,4 @@ Se aceptan códigos o nombres sin tildes. La URL guarda el filtro: `#m=41093&mod
 Código: MIT (derivado de amsterdam-by-building, © 2026 alexbarakov). Datos: Catastro, uso libre citando a la
 Dirección General del Catastro como autora y titular; catastros forales de Bizkaia (© Bizkaiko Foru Aldundia) y
 Gipuzkoa (CC BY-SA, © Gipuzkoako Foru Aldundia); IAPH, datos abiertos de la Junta de Andalucía; MDT05 y LiDAR
-© IGN/CNIG (CC BY 4.0, scne.es); Wikidata CC0; fotos de Wikimedia Commons con su licencia; OpenStreetMap, ODbL.
+© IGN/CNIG (CC BY 4.0, scne.es); ortofoto PNOA © IGN; Wikidata CC0; fotos de Wikimedia Commons con su licencia; OpenStreetMap, ODbL.

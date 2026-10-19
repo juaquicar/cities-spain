@@ -129,16 +129,30 @@ h1.long { font-size: clamp(25px, 2.5vw, 32px); }
 .tools button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
 .tools svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .tools .compass svg { width: 24px; height: 24px; stroke-width: 1.2; }
+.base-menu { position: fixed; z-index: 6; display: flex; flex-direction: column; padding: 4px; border-radius: 12px; min-width: 200px; }
+.base-menu button { border: 0; background: none; color: var(--ink); font-size: 13px; font-weight: 600; text-align: left;
+  padding: 8px 10px 8px 28px; border-radius: 8px; cursor: pointer; position: relative; }
+.base-menu button:hover { background: var(--faint); }
+.base-menu button[aria-checked="true"]::before { content: ""; position: absolute; left: 10px; top: 50%; width: 8px; height: 8px;
+  margin-top: -4px; border-radius: 50%; background: var(--accent); }
+.base-credit { position: fixed; right: var(--gutter); margin: 0; z-index: 2; font-size: 11px; color: var(--muted);
+  background: var(--glass); padding: 2px 8px; border-radius: 6px; }
+.base-credit a { color: inherit; }
 .compass circle { stroke: var(--muted); }
 .compass #needle { transform-origin: 12px 12px; }
 .compass .n { fill: #e5432f; stroke: none; }
 .compass .s { fill: var(--muted); stroke: none; }
 
 .find { position: fixed; right: var(--gutter); top: calc(env(safe-area-inset-top, 0px) + var(--gutter) + 148px); }
-.find input { width: 214px; border: 1px solid var(--edge); background: var(--glass); border-radius: 10px; padding: 7px 12px;
+.find input { width: 260px; border: 1px solid var(--edge); background: var(--glass); border-radius: 10px; padding: 7px 12px;
   font-variant-numeric: tabular-nums; letter-spacing: .02em; -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
 .find input::placeholder { color: var(--muted); }
 .find input.bad { border-color: var(--accent); }
+.find-list { position: absolute; right: 0; top: calc(100% + 6px); width: min(340px, calc(100vw - 2 * var(--gutter)));
+  margin: 0; padding: 4px; list-style: none; border-radius: 12px; z-index: 6; max-height: 50vh; overflow-y: auto; }
+.find-list li { padding: 7px 10px; border-radius: 8px; cursor: pointer; font-size: 13px; line-height: 1.3; }
+.find-list li small { display: block; color: var(--muted); font-size: 11.5px; }
+.find-list li:hover, .find-list li[aria-selected="true"] { background: var(--faint); }
 
 /* ---------- Legend ---------- */
 .panel { position: fixed; left: var(--gutter); top: calc(env(safe-area-inset-top, 0px) + var(--gutter) + 236px);
@@ -298,7 +312,7 @@ h1.long { font-size: clamp(25px, 2.5vw, 32px); }
 .ar-video { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; background: #000; }
 body.ar-on { background: #000; }
 body.ar-on:not(:has(.ar-video:not([hidden]))) { background: linear-gradient(180deg, var(--sky-top) 0%, var(--sky) 42%); }
-body.ar-on .masthead, body.ar-on .tally, body.ar-on .tools, body.ar-on .find, body.ar-on .panel, body.ar-on .dock,
+body.ar-on .masthead, body.ar-on .tally, body.ar-on .tools, body.ar-on .find, body.ar-on .base-menu, body.ar-on .base-credit, body.ar-on .panel, body.ar-on .dock,
 body.ar-on .veil, body.ar-on .labels, body.ar-on .route-line, body.ar-on .ar-start { display: none !important; }
 .ar { position: fixed; inset: 0; z-index: 4; touch-action: none; user-select: none; -webkit-user-select: none; }
 .ar-tags { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }

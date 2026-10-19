@@ -55,6 +55,8 @@
     <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M16.5 10a6.5 6.5 0 1 1-2-4.7M16.5 3v3.5H13"/></svg></button>
   <button id="t-theme" title="Noche o día (N)" aria-label="Cambiar a día o noche">
     <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M15.5 12.5A6.5 6.5 0 0 1 7.5 4.5a6.5 6.5 0 1 0 8 8z"/></svg></button>
+  <button id="t-base" title="Mapa base (B)" aria-label="Mapa base" aria-haspopup="menu" aria-expanded="false" aria-pressed="false">
+    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3 2.5 7 10 11l7.5-4zM2.5 10.5 10 14.5l7.5-4M2.5 14 10 18l7.5-4"/></svg></button>
   <button id="t-share" title="Copiar enlace a esta vista" aria-label="Copiar enlace a esta vista">
     <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M8.5 11.5a3.5 3.5 0 0 0 5 0l2.5-2.5a3.5 3.5 0 0 0-5-5L10 5M11.5 8.5a3.5 3.5 0 0 0-5 0L4 11a3.5 3.5 0 0 0 5 5l1-1"/></svg></button>
   <button id="t-shot" title="Guardar imagen" aria-label="Guardar imagen de la vista">
@@ -63,9 +65,18 @@
     <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/><path d="M10 9v5M10 6.2v.1"/></svg></button>
 </nav>
 
+<div id="base-menu" class="base-menu glass" role="menu" aria-label="Mapa base" hidden>
+  <button role="menuitemradio" data-base="" aria-checked="true">Sin mapa base</button>
+  <button role="menuitemradio" data-base="osm" aria-checked="false">OpenStreetMap</button>
+  <button role="menuitemradio" data-base="pnoa" aria-checked="false">Ortofoto PNOA (IGN)</button>
+</div>
+<p id="base-credit" class="base-credit" hidden></p>
+
 <div class="find" role="search">
   <input type="search" id="find" autocomplete="off" spellcheck="false" placeholder="Referencia catastral"
-    aria-label="Buscar por referencia catastral (14 caracteres)">
+    aria-label="Buscar por referencia catastral (14 caracteres)" role="combobox" aria-autocomplete="list"
+    aria-controls="find-list" aria-expanded="false">
+  <ul id="find-list" class="find-list glass" role="listbox" hidden></ul>
 </div>
 
 <aside id="panel" class="panel glass">
@@ -88,7 +99,7 @@
       <button data-mode="2" aria-pressed="false">Plantas</button>
       <button data-mode="3" aria-pressed="false">Patrimonio</button>
     </nav>
-    <p class="howto">Arrastra para girar. Botón derecho o Mayús para desplazar. Rueda para acercar.</p>
+    <p class="howto">Arrastra para girar. Botón derecho o flechas para desplazar (Mayús + flechas, girar). Rueda o + − para acercar.</p>
   </div>
   <div class="timeline">
     <button id="play" class="play" aria-label="Reproducir el crecimiento">
@@ -138,6 +149,7 @@
       de la Junta de Andalucía; fotos y artículos de Wikidata, Wikipedia y Wikimedia Commons (cada foto con su licencia).</li>
     <li>Relieve: MDT05, © Instituto Geográfico Nacional (CC BY 4.0, scne.es).</li>
     <li>Términos municipales y agua: © colaboradores de OpenStreetMap, ODbL.</li>
+    <li>Mapa base opcional: OpenStreetMap (ODbL) u ortofoto PNOA © IGN (CC BY 4.0). Direcciones: Photon (komoot) y Nominatim, con datos de OpenStreetMap.</li>
   </ul>
   <h3>Método</h3>
   <p>El Catastro da plantas, no metros: cada planta cuenta 3 m, más medio metro de pretil. El año es el que
